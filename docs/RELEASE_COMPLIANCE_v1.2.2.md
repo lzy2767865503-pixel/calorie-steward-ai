@@ -4,10 +4,10 @@
 **Version / 版本：1.2.2 (6)**  
 **Evidence time / 证据时间：`2026-08-24T20:37:02Z`**
 
-These checksums and counts come from the final locked dependency graph and the
-signed release candidate. Public GitHub and Kawan Campus state remains a
-separate post-publication verification gate. / 下列数量与校验和来自最终锁定依赖图及签名
-候选安装包；GitHub 与 Kawan Campus 的公开状态仍须在发布后单独核验。
+These checksums and counts come from the final locked dependency graph and signed
+release. Public GitHub and Kawan Campus state was independently verified after
+publication. / 下列数量与校验和来自最终锁定依赖图及签名安装包；GitHub 与 Kawan Campus
+的公开状态已在发布后独立核验。
 
 The GitHub Release is expected to publish the following machine-generated
 compliance assets beside the signed APK. / GitHub Release 计划在签名 APK 之外同时发布
@@ -48,8 +48,8 @@ the software-bill-of-materials scope. They must be verified as one release set:
 |---|---|---|
 | `calorie-steward-v1.2.2-android-enterprise.apk` | Application ID `com.laisystems.dietsteward`, version `1.2.2 (6)`, same official signing identity | Verified; 81,187,073 bytes; SHA-256 `150d159681e451ada88bf46311dde851e2d486cb2a46201f46437be34da8c76a`; v2/RSA-3072 signature |
 | `calorie-steward-v1.2.2-android-enterprise.apk.sha256` | Must contain the exact final APK SHA-256 | Verified locally; exact hash and filename recorded |
-| Kawan Campus public release manifest | Version/build/hash must match the APK; download and checksum URLs must both be live | Pending the separate post-GitHub publication gate; must not advance early |
-| GitHub Release | Tag, source commit, APK, checksum and compliance assets must be publicly reachable | Pending the separate public-release gate |
+| Kawan Campus public release manifest | Version/build/hash must match the APK; download and checksum URLs must both be live | Verified public JSON: v1.2.2, Build 6, support floor 6 and matching SHA-256; immutable GitHub URLs live |
+| GitHub Release | Tag, source commit, APK, checksum and compliance assets must be publicly reachable | Verified: annotated `v1.2.2`, public Release, signed APK, checksum and four compliance assets |
 
 The client validates the manifest structure, application identity, release
 metadata, SHA-256 syntax and official URL allowlist. It does **not** hash the APK
@@ -76,8 +76,6 @@ policies, trademarks, export rules, privacy disclosures and notice obligations.
 
 ## Publication gate / 发布门禁
 
-The dependency/compliance bundle is complete. The release is public only after
-the GitHub assets and checksum are fetched independently and the matching Kawan
-Campus manifest is deployed and re-read from the public endpoint. / 依赖与合规产物已完成；
-只有 GitHub 资产及校验文件可独立读取，且匹配的 Kawan Campus 清单部署并从公网重新读取后，
-才可称为公开发布完成。
+The dependency/compliance bundle, GitHub assets, downloadable checksum and Kawan
+Campus manifest passed their independent public checks. / 依赖与合规产物、GitHub 资产、
+可下载校验文件与 Kawan Campus 清单均已通过独立公网复核。

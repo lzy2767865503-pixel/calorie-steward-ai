@@ -62,7 +62,7 @@ flowchart LR
 
 v1.2.2 最终发布门禁通过 **185/185** 项自动化测试（移动端 163、历史后端 15、食品数据管道 7），Android Lint 与 Release 构建通过。最终签名 APK 已在 Android API 24 完成新装，在 API 35 从同签名 v1.2.1 覆盖升级并保持 `firstInstallTime`，两次冷启动日志均未发现 App FATAL/ANR。APK SHA-256：`150d159681e451ada88bf46311dde851e2d486cb2a46201f46437be34da8c76a`。
 
-v1.2.2 是首个内置 Android 持续版本检查器的版本：启动完成和每次回到前台时读取 Kawan Campus 的无凭据公开清单，只接受官方 GitHub Release 的不可变版本化 APK 地址。可选更新可延后 6 小时；一旦必须更新门槛成功持久化，全屏门禁会在重启、断网、过期缓存和刷新失败后继续生效，写入失败时则在当前进程内保持阻断并等待重试。v1.2.1 及更早安装包没有检查器，必须手动覆盖安装 v1.2.2 一次，之后才能持续收到后续版本提醒。该机制是轮询提醒和用户确认安装，不是后台静默推送或静默安装。客户端清单地址已固定，候选证据时的公网 JSON 部署仍是独立发布门禁。
+v1.2.2 是首个内置 Android 持续版本检查器的版本：启动完成和每次回到前台时读取 Kawan Campus 的无凭据公开清单，只接受官方 GitHub Release 的不可变版本化 APK 地址。可选更新可延后 6 小时；一旦必须更新门槛成功持久化，全屏门禁会在重启、断网、过期缓存和刷新失败后继续生效，写入失败时则在当前进程内保持阻断并等待重试。v1.2.1 及更早安装包没有检查器，必须手动覆盖安装 v1.2.2 一次，之后才能持续收到后续版本提醒。该机制是轮询提醒和用户确认安装，不是后台静默推送或静默安装。[公开版本清单](https://kawancampus.com/downloads/calorie-steward-android-release.json) 已与 GitHub v1.2.2 资产、Build 6 和 APK 哈希同步上线。
 
 ### 下载与本地运行
 
@@ -136,7 +136,7 @@ The repository includes type checks, domain-rule tests, API-contract and failure
 
 The final v1.2.2 gate passed **185/185** automated tests (163 mobile, 15 historical-backend and 7 food-pipeline tests), Android Lint and the signed release build. The final APK passed a fresh install on Android API 24 and an in-place upgrade from same-signed v1.2.1 on API 35 while retaining `firstInstallTime`; neither cleared cold-launch log contained an app FATAL/ANR. APK SHA-256: `150d159681e451ada88bf46311dde851e2d486cb2a46201f46437be34da8c76a`.
 
-v1.2.2 is the first build with the long-lived Android release checker. It reads a credential-free Kawan Campus manifest after startup and whenever the app returns to the foreground, and accepts only immutable versioned APK URLs in the official GitHub Releases repository. Optional updates can be snoozed for six hours. Once a required support floor is successfully persisted, restart, offline state, stale disk data and refresh failure cannot dismiss the full-screen gate; a persistence failure remains blocking in the current process until retry succeeds. v1.2.1 and earlier do not contain the checker and therefore need one manual same-signed overlay install of v1.2.2 before they can discover later releases. This is polling plus a user-controlled Android install, not silent background push or installation. The client URL is fixed, while public JSON deployment remained a separate release gate at the candidate-evidence time.
+v1.2.2 is the first build with the long-lived Android release checker. It reads a credential-free Kawan Campus manifest after startup and whenever the app returns to the foreground, and accepts only immutable versioned APK URLs in the official GitHub Releases repository. Optional updates can be snoozed for six hours. Once a required support floor is successfully persisted, restart, offline state, stale disk data and refresh failure cannot dismiss the full-screen gate; a persistence failure remains blocking in the current process until retry succeeds. v1.2.1 and earlier do not contain the checker and therefore need one manual same-signed overlay install of v1.2.2 before they can discover later releases. This is polling plus a user-controlled Android install, not silent background push or installation. The [public manifest](https://kawancampus.com/downloads/calorie-steward-android-release.json) is live and synchronized to the GitHub v1.2.2 assets, Build 6 and APK digest.
 
 ### Download and run
 

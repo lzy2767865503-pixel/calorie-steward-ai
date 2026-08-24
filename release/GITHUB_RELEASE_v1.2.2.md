@@ -8,8 +8,8 @@ AI-assisted vibe-coding workflow.
 ## 中文
 
 v1.2.2 是首个内置 Android 长期版本检查器的 **卡路里管家 · Calorie Steward**
-版本。客户端已固定 Kawan Campus 公开发布清单地址；该 JSON 的公网部署与验证会在
-GitHub 资产公开后作为独立门禁完成，同时继续保留旧安装、本地饮食记录和 API 凭据所依赖的兼容标识。
+版本。Kawan Campus 公开发布清单已在 GitHub 资产公开并完成校验后同步上线，同时继续
+保留旧安装、本地饮食记录和 API 凭据所依赖的兼容标识。
 
 ### 更新
 
@@ -40,10 +40,10 @@ v1.2.2 (6)，`firstInstallTime` 保持不变并成功冷启动。
 ## English
 
 v1.2.2 is the first **Calorie Steward / 卡路里管家** release to include a
-long-lived Android release checker. The client uses a fixed Kawan Campus manifest
-URL; public JSON deployment and verification is completed as a separate gate
-after the GitHub assets are public. It preserves the compatibility identifiers
-required by existing installs, local diet records and stored API credentials.
+long-lived Android release checker. The fixed Kawan Campus public manifest was
+deployed only after the GitHub assets were public and independently verified. It
+preserves the compatibility identifiers required by existing installs, local
+diet records and stored API credentials.
 
 ### Changed
 
@@ -104,6 +104,7 @@ shasum -a 256 calorie-steward-v1.2.2-android-enterprise.apk
 - Android package / 安装包：`clean + lintRelease + assembleRelease` 通过；v2 签名、16 KiB zip alignment、权限与内嵌敏感信息扫描通过
 - Runtime / 运行：Android API 24 新装与 API 35 从 v1.2.1 覆盖升级均通过；冷启动日志未发现 App FATAL/ANR
 - Compliance / 合规：npm SPDX SBOM、npm license bundle、Android runtime inventory 与 Android license bundle 已生成；Android 许可证未解析项为 0
+- Public channel / 公开通道：GitHub 6 个资产与 Kawan Campus Build 6 JSON 清单已上线；公网下载 APK、GitHub 资产摘要与 `.sha256` 三方哈希一致
 
 ## Important boundaries / 重要边界
 
