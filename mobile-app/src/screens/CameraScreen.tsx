@@ -122,7 +122,7 @@ export function CameraScreen({
         </View>
         <Text style={styles.permissionTitle}>{t("只需要相机权限", "Only camera access is needed")}</Text>
         <Text style={styles.permissionBody}>
-          {t("饮食管家只用相机拍摄餐食。不申请位置、通讯录或麦克风权限。", "Diet Steward uses the camera only for meal photos. It does not request location, contacts, or microphone access.")}
+          {t("卡路里管家只用相机拍摄餐食。不申请位置、通讯录或麦克风权限。", "Calorie Steward uses the camera only for meal photos. It does not request location, contacts, or microphone access.")}
         </Text>
         <View style={styles.permissionActions}>
           <PrimaryButton label={t("允许相机", "Allow camera")} icon="camera-outline" onPress={() => void requestPermission()} />

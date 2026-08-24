@@ -13,7 +13,7 @@ const GRADLE_BLOCK_START =
 const GRADLE_BLOCK_END =
   "// </diet-steward-managed-android-configuration>";
 const RELEASE_SIGNING_PLACEHOLDER =
-  "            // Release signing is assigned by the Diet Steward managed block below.";
+  "            // Release signing is assigned by the Calorie Steward managed block below.";
 const GRADLE_9_3_1_DISTRIBUTION_SHA256 =
   "b266d5c9b8ca6f4b3e8733a59783df9e430ddb034a5bb4a5ef7f4f0b4e3aff06";
 
@@ -258,11 +258,11 @@ module.exports = function withPrivateAndroidManifest(config) {
       official_developer: "Developed by LAI ZEYU 来泽宇",
     });
     await upsertStringsFile(join(resourceRoot, "values-en", "strings.xml"), {
-      app_name: "Diet Steward",
+      app_name: "Calorie Steward",
       official_developer: "Developed by LAI ZEYU 来泽宇",
     });
     await upsertStringsFile(join(resourceRoot, "values-zh", "strings.xml"), {
-      app_name: "饮食管家",
+      app_name: "卡路里管家",
       official_developer: "由 LAI ZEYU 来泽宇 开发",
     });
     await pinGradleDistributionChecksum(

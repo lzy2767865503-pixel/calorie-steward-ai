@@ -84,10 +84,10 @@ const englishNativeCopy = read("locales/en.json");
 const chineseNativeCopy = read("locales/zh.json");
 assert.doesNotMatch(englishNativeCopy, han, "English native permission copy must not contain Chinese");
 assert.match(chineseNativeCopy, han, "Chinese native permission copy is missing");
-assert.match(read("android/app/src/main/res/values-en/strings.xml"), /Diet Steward/);
-assert.match(read("android/app/src/main/res/values-zh/strings.xml"), /饮食管家/);
-assert.match(read("ios/app/en.lproj/InfoPlist.strings"), /Allow Diet Steward/);
-assert.match(read("ios/app/zh-Hans.lproj/InfoPlist.strings"), /允许饮食管家/);
+assert.match(read("android/app/src/main/res/values-en/strings.xml"), /Calorie Steward/);
+assert.match(read("android/app/src/main/res/values-zh/strings.xml"), /卡路里管家/);
+assert.match(read("ios/app/en.lproj/InfoPlist.strings"), /Allow Calorie Steward/);
+assert.match(read("ios/app/zh-Hans.lproj/InfoPlist.strings"), /允许卡路里管家/);
 
 assert.deepEqual(
   failures,

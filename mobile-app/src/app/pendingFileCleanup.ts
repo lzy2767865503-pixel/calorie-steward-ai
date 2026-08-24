@@ -79,7 +79,9 @@ function assertOwnedPrivateFileUri(
     ? uri.slice(`${cacheDirectory}ImageManipulator/`.length)
     : "";
   const isMealPhoto = /^[A-Za-z0-9._-]+\.jpg$/.test(mealFileName);
-  const isExport = /^diet-steward-export-[A-Za-z0-9._-]+\.json$/.test(
+  // Keep accepting the legacy filename so cleanup journals created before the
+  // v1.2.1 rebrand can still remove plaintext exports after an overlay upgrade.
+  const isExport = /^(?:calorie|diet)-steward-export-[A-Za-z0-9._-]+\.json$/.test(
     exportFileName,
   );
   const generatedJpegName =

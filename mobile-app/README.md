@@ -1,4 +1,4 @@
-# 饮食管家双端客户端
+# 卡路里管家双端客户端
 
 同一份 Expo React Native + TypeScript 业务代码面向 Android 和 iOS。当前版本只保留“拍照识别”一种餐食录入方式。
 

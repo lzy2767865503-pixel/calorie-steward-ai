@@ -1,6 +1,6 @@
 # Contributing / 贡献指南
 
-Thank you for helping improve Diet Steward. / 感谢你帮助改进饮食管家。
+Thank you for helping improve Calorie Steward. / 感谢你帮助改进卡路里管家。
 
 ## Before opening a change / 提交前
 

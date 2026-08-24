@@ -92,6 +92,7 @@ release/*BUILD_REPORT*.md
 release/*SHA256SUMS*
 release/SHA256SUMS
 !release/GITHUB_RELEASE_v1.2.0.md
+!release/GITHUB_RELEASE_v1.2.1.md
 
 # The browser design prototype depends on device-frame and keyboard assets whose
 # public redistribution provenance has not yet been verified. It is intentionally
@@ -99,6 +100,6 @@ release/SHA256SUMS
 design-prototype/
 
 # Superseded prototype icon with unverified provenance. The public release uses
-# android-app/branding/diet-steward-app-icon-v1.2.png instead.
+# android-app/branding/calorie-steward-app-icon-v1.2.1.png instead.
 android-app/branding/clinical-clarity-app-icon.png
 mobile-app/ios/app/Images.xcassets/AppIcon.appiconset/App-Icon-1024x1024@1x.png

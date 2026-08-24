@@ -11,7 +11,7 @@ const scriptDirectory = dirname(fileURLToPath(import.meta.url));
 const repositoryRoot = resolve(scriptDirectory, "..");
 const mobileRoot = join(repositoryRoot, "mobile-app");
 const releaseRoot = join(repositoryRoot, "release");
-const version = "1.2.0";
+const version = "1.2.1";
 const requestedEvidenceTime = process.env.RELEASE_EVIDENCE_UTC ?? new Date().toISOString();
 const parsedEvidenceTime = new Date(requestedEvidenceTime);
 if (Number.isNaN(parsedEvidenceTime.getTime())) {
@@ -22,10 +22,10 @@ if (Number.isNaN(parsedEvidenceTime.getTime())) {
 const evidenceTime = parsedEvidenceTime.toISOString();
 const reportPath =
   process.argv[2] ??
-  join(releaseRoot, `diet-steward-v${version}-android-runtime-dependencies.txt`);
+  join(releaseRoot, `calorie-steward-v${version}-android-runtime-dependencies.txt`);
 const outputPath = join(
   releaseRoot,
-  `diet-steward-v${version}-android-third-party-licenses.txt`,
+  `calorie-steward-v${version}-android-third-party-licenses.txt`,
 );
 
 if (!existsSync(reportPath)) {
@@ -80,7 +80,7 @@ function loadLocalExpoModuleCoverage() {
   );
   const companionSbomPath = join(
     releaseRoot,
-    `diet-steward-v${version}-npm-sbom.spdx.json`,
+    `calorie-steward-v${version}-npm-sbom.spdx.json`,
   );
   if (!existsSync(autolinkingBinary) || !existsSync(companionSbomPath)) {
     return new Map();
@@ -270,7 +270,7 @@ const missingMetadata = dependencyRows.filter(
     row.embeddedSources.length === 0,
 );
 const output = [
-  `Diet Steward v${version} Android third-party license metadata and texts`,
+  `Calorie Steward v${version} Android third-party license metadata and texts`,
   `Generated: ${evidenceTime}`,
   "Developer: LAI ZEYU (\u6765\u6cfd\u5b87)",
   "Configuration: :app releaseRuntimeClasspath",

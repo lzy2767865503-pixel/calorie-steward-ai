@@ -10,7 +10,7 @@ const scriptDirectory = dirname(fileURLToPath(import.meta.url));
 const repositoryRoot = resolve(scriptDirectory, "..");
 const mobileRoot = join(repositoryRoot, "mobile-app");
 const releaseRoot = join(repositoryRoot, "release");
-const version = "1.2.0";
+const version = "1.2.1";
 const requestedEvidenceTime = process.env.RELEASE_EVIDENCE_UTC ?? new Date().toISOString();
 const parsedEvidenceTime = new Date(requestedEvidenceTime);
 if (Number.isNaN(parsedEvidenceTime.getTime())) {
@@ -20,8 +20,8 @@ if (Number.isNaN(parsedEvidenceTime.getTime())) {
 }
 const evidenceTime = parsedEvidenceTime.toISOString();
 
-const sbomFilename = `diet-steward-v${version}-npm-sbom.spdx.json`;
-const licensesFilename = `diet-steward-v${version}-third-party-licenses.txt`;
+const sbomFilename = `calorie-steward-v${version}-npm-sbom.spdx.json`;
+const licensesFilename = `calorie-steward-v${version}-third-party-licenses.txt`;
 
 const rawSbom = execFileSync(
   "npm",
@@ -46,7 +46,7 @@ const packages = [...(sbom.packages ?? [])].sort((left, right) =>
 // Normalize both so a fixed lockfile and RELEASE_EVIDENCE_UTC produce stable
 // release metadata that can be compared across independent generation runs.
 sbom.documentNamespace =
-  `https://github.com/lzy2767865503-pixel/diet-steward-ai/releases/download/` +
+  `https://github.com/lzy2767865503-pixel/calorie-steward-ai/releases/download/` +
   `v${version}/${sbomFilename}`;
 sbom.creationInfo = {
   ...(sbom.creationInfo ?? {}),
@@ -104,7 +104,7 @@ for (const packageEntry of packages) {
 }
 
 const lines = [
-  `Diet Steward v${version} third-party license bundle`,
+  `Calorie Steward v${version} third-party license bundle`,
   `Generated: ${evidenceTime}`,
   "Developer: LAI ZEYU (\u6765\u6cfd\u5b87)",
   "",

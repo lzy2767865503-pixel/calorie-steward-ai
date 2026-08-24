@@ -89,7 +89,7 @@ export function ReportsScreen({
         <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
           <View style={styles.header}>
             <View>
-              <Text style={styles.eyebrow}>{t("身体饮食管家", "AI NUTRITION JOURNAL")}</Text>
+              <Text style={styles.eyebrow}>{t("智能卡路里管家", "AI CALORIE JOURNAL")}</Text>
               <Text style={styles.title}>{t("饮食报告", "Diet reports")}</Text>
               <Text style={styles.subtitle}>{t("总量和评分本机重算，AI 只写解释与建议", "Totals and scores are recalculated on device; AI writes only explanations and suggestions")}</Text>
             </View>
@@ -197,7 +197,7 @@ export function ReportsScreen({
                 <Ionicons name="sparkles" size={23} color={colors.teal} />
               </View>
               <View style={styles.aiHeaderCopy}>
-                <Text style={styles.cardEyebrow}>{t("AI 饮食管家", "AI DIET STEWARD")}</Text>
+                <Text style={styles.cardEyebrow}>{t("AI 卡路里管家", "AI CALORIE STEWARD")}</Text>
                 <Text style={styles.cardTitle}>{t("生成这个周期的人话报告", "Generate a plain-language report")}</Text>
               </View>
             </View>
