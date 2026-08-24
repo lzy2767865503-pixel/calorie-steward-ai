@@ -24,7 +24,8 @@ GitHub and Kawan Campus state is verified separately after publication. / 本文
 | Size | `81,187,073 bytes` (about 77.4 MiB) |
 | APK SHA-256 | `150d159681e451ada88bf46311dde851e2d486cb2a46201f46437be34da8c76a` |
 | Hermes bundle SHA-256 | `4bd1a199f412a61ccb202b59b327c0b938ddd97204deee4c298fe40c34c9a137` |
-| Release build time | `2026-08-24T20:37:02Z` |
+| Observed Gradle APK output mtime | `2026-08-24T20:36:34Z` |
+| Release evidence/artifact-record time | `2026-08-24T20:37:02Z` |
 
 Independent checksum command / 独立校验命令：
 
@@ -46,7 +47,7 @@ shasum -a 256 calorie-steward-v1.2.2-android-enterprise.apk
 | Checksum binding | Checksum URL must be exactly the allowlisted APK URL plus `.sha256` |
 | Optional policy | A later build can be deferred for six hours; the snooze is scoped to that latest build |
 | Required policy | If installed Build is below `minimumSupportedBuild`, a full-screen non-cancelable gate is persisted and offers the official update action plus retry |
-| Failure behavior | Before any valid manifest is learned, offline startup cannot know a new support floor. Once learned, the highest required floor survives restart, offline state, stale disk data, refresh failure and persistence retry races |
+| Failure behavior | Before any valid manifest is learned, offline startup cannot know a new support floor. Once successfully persisted, the highest required floor survives restart, offline state, stale disk data and refresh failure; if persistence fails, the current process remains blocked and retries without downgrading the in-memory gate |
 | Privacy | Request contains no photo, diet record, profile, provider configuration, API key or other user payload |
 | Install boundary | The app opens the official HTTPS APK URL; Android and the user complete the installation |
 
@@ -79,10 +80,10 @@ release still has to publish a higher signed build, checksum and current manifes
 | Historical backend tests | `15 / 15 passed` | Final source-tree run |
 | Total automated tests | `185 / 185 passed` | Mobile 163 + backend 15 + catalogue 7 |
 | TypeScript and mobile verify | Passed | TypeScript, bilingual copy, attribution and test-harness typecheck passed |
-| Mobile npm high/critical audit | `0 vulnerabilities` | `npm audit --omit=dev --audit-level=high` against the final locked production dependency tree |
-| Android release build | Passed | Gradle `clean lintRelease assembleRelease --no-daemon`; 360 tasks completed |
+| Mobile npm high/critical audit | `0 vulnerabilities` | `npm audit --audit-level=high` against the final locked mobile npm dependency tree |
+| Android release build | Passed | Gradle `clean lintRelease assembleRelease --no-daemon`; Lint reported 0 errors and 35 warnings |
 | Public source secret scan | Passed | High-confidence public-secret patterns and local-path checks |
-| Embedded APK scan | Passed | 1,132 extracted files checked for local paths, credential prefixes, removed-provider references and signing metadata |
+| Embedded APK scan | Passed | 1,182 extracted entries checked for local paths, credential prefixes, removed-provider references and private-key/signing-secret material |
 | Barcode/ML Kit runtime gate | Passed | Gradle `releaseRuntimeClasspath` contains no barcode/ML Kit runtime dependency modules |
 | Release compliance assets | Passed | SPDX SBOM, npm license bundle, Android runtime inventory and Android license bundle generated |
 

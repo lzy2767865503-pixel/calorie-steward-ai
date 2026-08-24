@@ -8,8 +8,8 @@ AI-assisted vibe-coding workflow.
 ## 中文
 
 v1.2.2 是首个内置 Android 长期版本检查器的 **卡路里管家 · Calorie Steward**
-版本。它把后续版本发现接入 Kawan Campus 的公开发布清单，同时继续保留旧安装、
-本地饮食记录和 API 凭据所依赖的兼容标识。
+版本。客户端已固定 Kawan Campus 公开发布清单地址；该 JSON 的公网部署与验证会在
+GitHub 资产公开后作为独立门禁完成，同时继续保留旧安装、本地饮食记录和 API 凭据所依赖的兼容标识。
 
 ### 更新
 
@@ -20,7 +20,8 @@ v1.2.2 是首个内置 Android 长期版本检查器的 **卡路里管家 · Cal
   时，显示不可延后的更新提示。
 - 版本检查只执行不携带凭据的公开 `GET` 请求，不上传照片、饮食记录、个人资料、
   Provider 配置或 API Key。首次成功读取清单前，断网无法得知服务器的新要求；一旦
-  App 已记录必须更新门槛，重启、断网、过期缓存或重新打开失败都不能解除该门禁。
+  App 已成功持久化必须更新门槛，重启、断网、过期缓存或重新打开失败都不能解除该门禁；
+  写入失败时，本次运行仍保持阻断并等待重试。
 - “立即更新”只会打开受信任的官方 APK 地址，安装仍由 Android 处理并需要用户确认；
   本版不实施静默下载或静默安装。
 - Mobile 自动化测试现为 `163 / 163 passed`，其中包含 15 项更新清单、URL 信任边界、
@@ -39,9 +40,10 @@ v1.2.2 (6)，`firstInstallTime` 保持不变并成功冷启动。
 ## English
 
 v1.2.2 is the first **Calorie Steward / 卡路里管家** release to include a
-long-lived Android release checker. It discovers later builds from a public
-Kawan Campus manifest while preserving the compatibility identifiers required
-by existing installs, local diet records and stored API credentials.
+long-lived Android release checker. The client uses a fixed Kawan Campus manifest
+URL; public JSON deployment and verification is completed as a separate gate
+after the GitHub assets are public. It preserves the compatibility identifiers
+required by existing installs, local diet records and stored API credentials.
 
 ### Changed
 
@@ -55,8 +57,9 @@ by existing installs, local diet records and stored API credentials.
 - The check is a credential-free public `GET`. It never uploads photos, diet
   records, profile data, provider configuration or API keys. Before the first
   successful manifest fetch, an offline client cannot know a new server-side
-  requirement. Once a required floor is learned, restart, offline state, stale
-  disk data or a failed reopen cannot dismiss the persisted gate.
+  requirement. Once a required floor is successfully persisted, restart,
+  offline state, stale disk data or a failed reopen cannot dismiss it. A
+  persistence failure remains blocking in the current run until retry succeeds.
 - “Update now” opens only an allowlisted official APK URL. Android still owns
   the install flow and requires user action; this is not silent downloading or
   silent installation.
@@ -85,7 +88,8 @@ API 35 overlay upgrade from v1.2.1 (5) to v1.2.2 (6), retained the original
 - Size / 大小：`81,187,073 bytes`（约 77.4 MiB）
 - APK SHA-256：`150d159681e451ada88bf46311dde851e2d486cb2a46201f46437be34da8c76a`
 - Signature / 签名：APK Signature Scheme v2；RSA 3072；证书 SHA-256 `a70538342a5f714d1e1e92901b4408f7b20b2f4e39a435f50171642ff9a80e70`
-- Build time / 构建时间：`2026-08-24T20:37:02Z`
+- Observed Gradle APK output mtime / 观察到的 Gradle APK 输出时间：`2026-08-24T20:36:34Z`
+- Evidence record time / 证据记录时间：`2026-08-24T20:37:02Z`
 
 Verify before installing / 安装前校验：
 
@@ -110,11 +114,13 @@ shasum -a 256 calorie-steward-v1.2.2-android-enterprise.apk
   the actual package/signature checks during installation. / App 不在内部下载、校验或安装 APK；
   清单校验和供独立核对，实际安装与包签名检查由 Android 完成。
 - Before any valid manifest is learned, a network failure cannot reveal a new
-  server-side floor. Once a required floor is learned, the full-screen gate is
-  persisted and cannot be cleared by restart, offline state or failed refresh.
+  server-side floor. Once a required floor is successfully persisted, the
+  full-screen gate cannot be cleared by restart, offline state or failed refresh;
+  a persistence failure stays blocking in the current run until retry succeeds.
   It remains app-level policy, not MDM-grade silent enforcement. / 首次成功读取有效清单前，
-  断网无法得知服务器的新门槛；一旦记录必须更新门槛，全屏门禁会持久化，重启、断网或
-  刷新失败都不能解除，但它仍是 App 层策略，不是 MDM 级静默强制。
+  断网无法得知服务器的新门槛；一旦必须更新门槛成功持久化，全屏门禁在重启、断网或
+  刷新失败后仍不能解除；若写入失败，本次运行会保持阻断并等待重试。它仍是 App 层策略，
+  不是 MDM 级静默强制。
 - v1.2.1 and earlier need one manual bridge installation. No code added to
   v1.2.2 can retroactively notify an APK that does not contain the checker.
   / v1.2.1 及更早版本必须手动桥接一次，无法被新代码事后远程唤醒。
