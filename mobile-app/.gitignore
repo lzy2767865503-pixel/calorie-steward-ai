@@ -1,0 +1,14 @@
+node_modules/
+.expo/
+dist/
+android/.gradle/
+android/app/build/
+ios/Pods/
+*.jks
+*.keystore
+*.mobileprovision
+*.p8
+*.p12
+.env
+.env.*
+!.env.example

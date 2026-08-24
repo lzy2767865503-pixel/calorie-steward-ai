@@ -1,0 +1,5 @@
+7d1dcd9b5cb576eba784c23109c41e799fd285529ccf9b65ac84765c5aafec4d  android-app/app/src/main/assets/databases/clinical_clarity_foods.sqlite
+29e12fdff36ca4ecbe7bd2939a05c431eda8ab1bbeeaedd94a2a747a83e96f75  data/catalog-v3-added-supermarket-foods.csv
+4255adb50902591e361d4f3f4e747635077a36509943f027fb3d4f0efa808bbd  data/dataset-manifest.json
+0225e4167705df6ef7f7075942fa5a44826ce9bd713ef666dfc5b8efe574b0ae  data/food-catalog.csv
+440a4b0d0a418ff48cd91e36910c207e5c262fdac2d60e15be36fb06c3f18a6c  data/quality-report.json

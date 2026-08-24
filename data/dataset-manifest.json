@@ -1,0 +1,1185 @@
+{
+  "catalog_effective_date": "2026-08-18",
+  "catalog_name": "Clinical Clarity Food Catalogue",
+  "database_schema_version": 3,
+  "dataset_version": "USDA-FDC-CC-2026.08-v3",
+  "excluded_sources": {
+    "MyFCD": "Not included because commercial redistribution permission has not been obtained."
+  },
+  "generated_at_utc": "2026-08-17T23:17:06+00:00",
+  "license": {
+    "fooddata_central_documentation": "https://fdc.nal.usda.gov/data-documentation.html",
+    "fooddata_central_downloads": "https://fdc.nal.usda.gov/download-datasets/",
+    "name": "CC0 1.0 Universal public-domain dedication",
+    "url": "https://creativecommons.org/publicdomain/zero/1.0/"
+  },
+  "manifest_schema_version": 2,
+  "outputs": {
+    "added_supermarket_foods": {
+      "bytes": 848210,
+      "path": "data/catalog-v3-added-supermarket-foods.csv",
+      "records": 3000,
+      "sha256": "29e12fdff36ca4ecbe7bd2939a05c431eda8ab1bbeeaedd94a2a747a83e96f75"
+    },
+    "csv": {
+      "bytes": 1922259,
+      "path": "data/food-catalog.csv",
+      "sha256": "0225e4167705df6ef7f7075942fa5a44826ce9bd713ef666dfc5b8efe574b0ae"
+    },
+    "database": {
+      "bytes": 10436608,
+      "path": "android-app/app/src/main/assets/databases/clinical_clarity_foods.sqlite",
+      "sha256": "7d1dcd9b5cb576eba784c23109c41e799fd285529ccf9b65ac84765c5aafec4d"
+    }
+  },
+  "pipeline": {
+    "requirements": "data-pipeline/requirements.txt",
+    "requirements_sha256": "46caa394350c63ff05df422330684d513755275fded15ea73f88e3d8ce894a4a",
+    "script": "data-pipeline/build_food_database.py",
+    "script_sha256": "15773c131f3f41e01f29034991b6f32f16c94ebee3d9d07adbb9e2a8da83b1ea",
+    "unit_test": "data-pipeline/test_build_food_database.py",
+    "unit_test_sha256": "a5177b32d0b38f4e02ab07d0c0a570742b6fa93140f92857fa96fd9068425d6f"
+  },
+  "record_count": 5000,
+  "selection_policy": {
+    "algorithm": "First reproduce the v2 Foundation, Survey, and 400-row Branded selection; then select 3,000 additional official Branded rows by deterministic brand round-robin and category round-robin within each brand. Rows within buckets are sorted by SHA-256 of USDA source id. Before selection, duplicate GTIN versions across all frozen, manifested USDA sources are resolved to the latest among those sources by publication date, modified date, and FDC id; a latest version with an effective discontinuedDate or an independent DISCONTINUED description token excludes that GTIN without falling back. Duplicate source ids, barcodes, and normalized name-brand identities are excluded",
+    "barcode_storage": "barcode stores the scanner-compatible UPC-A/EAN-13/GTIN-14 value; barcode_gtin14 preserves the canonical 14-digit representation",
+    "branded_requirement": "Valid GTIN-8, UPC-A, EAN-13, or GTIN-14 with a correct check digit; positive labelled serving grams and energy; edible oils with nonpositive energy excluded",
+    "discontinuation_evidence_policy": "Exclude a GTIN when its latest frozen version has discontinuedDate on or before catalog_effective_date or an independent DISCONTINUED token in its description. A missing discontinuedDate field is persisted as UNKNOWN; UNKNOWN is not evidence of active manufacture or current shelf availability.",
+    "grocery_expansion_count": 3000,
+    "missing_value_policy": "NULL; never replaced with zero or an AI estimate",
+    "must_include_anchors": {
+      "survey": [
+        "Rice, white, cooked, no added fat",
+        "Soup, broth"
+      ]
+    },
+    "new_row_requirement": "Every additional row must have raw USDA tradeChannels containing GROCERY, a non-placeholder brand/category/market country, a valid barcode, positive serving grams and energy, and no known discontinuation marker",
+    "previous_catalog": {
+      "branded_source_id_set_sha256": "24f7e3c2ef59c34762697c99948d42b852bc05ff7a1f39b3118bff30713a4a7a",
+      "discontinuation_compatibility_note": "Known discontinuation markers on retained v2 rows are persisted and reported; the no-known-marker gate applies to the 3,000 new rows.",
+      "record_count": 2000,
+      "retention_policy": "retain all 2,000 previous source ids",
+      "source_id_set_sha256": "18c0d00706004468dc31c30875b37f6a6b38907bb3a84ef8da1fe9af7331038d",
+      "version": "USDA-FDC-CC-2026.08-v2"
+    },
+    "required_energy": "Official USDA energy value in kcal/100 g",
+    "source_gtin_normalization": "Accept check-digit-valid raw GTIN-8, UPC-A, EAN-13, and GTIN-14. If and only if the raw digit length is 7 or 11, attempt exactly one leading-zero recovery to GTIN-8 or UPC-A and require a valid check digit; reject every other unsupported length rather than padding it.",
+    "target_quotas": {
+      "branded": 3400,
+      "foundation": 300,
+      "survey": 1300
+    },
+    "translation_policy": "No Chinese or Malay translations generated"
+  },
+  "sources": [
+    {
+      "download_url": "https://fdc.nal.usda.gov/fdc-datasets/FoodData_Central_foundation_food_json_2026-04-30.zip",
+      "key": "foundation",
+      "name": "USDA FoodData Central Foundation Foods",
+      "quality_grade": "A",
+      "records_selected": 300,
+      "release": "2026-04-30",
+      "retrieval_method": "official FoodData Central bulk ZIP download",
+      "scan_statistics": {
+        "eligible_candidates": 321,
+        "records_rejected_missing_identity_energy_or_barcode": 74,
+        "records_scanned": 395
+      },
+      "source_artifacts": [
+        {
+          "bytes": 469303,
+          "filename": "foundation-2026-04-30.zip",
+          "sha256": "186e988ec542e913f51ef62b86a47758e8cdd0d1dc3889e7b055581f3c09c77a"
+        }
+      ]
+    },
+    {
+      "download_url": "https://fdc.nal.usda.gov/fdc-datasets/FoodData_Central_survey_food_json_2024-10-31.zip",
+      "key": "survey",
+      "name": "USDA FoodData Central Survey Foods (FNDDS 2021-2023)",
+      "quality_grade": "C",
+      "records_selected": 1300,
+      "release": "2024-10-31",
+      "retrieval_method": "official FoodData Central bulk ZIP download",
+      "scan_statistics": {
+        "eligible_candidates": 5431,
+        "records_rejected_missing_identity_energy_or_barcode": 1,
+        "records_scanned": 5432
+      },
+      "source_artifacts": [
+        {
+          "bytes": 3835292,
+          "filename": "survey-2024-10-31.zip",
+          "sha256": "dfb06ae7ddc397ccd570b91c14b75438ab2ba39f64f22d321f61d4a52a77f3eb"
+        }
+      ]
+    },
+    {
+      "download_url": null,
+      "key": "branded",
+      "name": "USDA FoodData Central Branded Foods API snapshot",
+      "quality_grade": "B",
+      "records_selected": 3400,
+      "release": "2026-08-18",
+      "retrieval_method": "official FoodData Central API and website-search snapshots plus official bulk JSON ZIP",
+      "scan_statistics": {
+        "grocery_expansion": {
+          "api_portal_distinct_source_id_union": 4428,
+          "api_portal_source_id_overlap": 661,
+          "august_api_distinct_source_ids": 993,
+          "august_api_raw_grocery_records": 868,
+          "august_api_records_scanned": 1200,
+          "bulk_invalid_gtin_checksum_records": 2039,
+          "bulk_missing_leading_zero_recovery_checksum_failures": 8545,
+          "bulk_missing_raw_gtin_records": 4,
+          "bulk_raw_grocery_records": 3645,
+          "bulk_records_materialization_pass": 455458,
+          "bulk_records_rejected_invalid_gtin": 10800,
+          "bulk_records_scanned": 455458,
+          "bulk_recovered_missing_leading_zero_gtin_records": 1245,
+          "bulk_unsupported_raw_gtin_length_records": 212,
+          "date_discontinued_grocery_latest_gtins_excluded": 517,
+          "description_discontinued_grocery_latest_gtins_excluded": 11,
+          "duplicate_gtin_version_records": 27814,
+          "eligible_latest_candidates": 3331,
+          "eligible_latest_from_august_api": 654,
+          "eligible_latest_from_bulk": 1327,
+          "eligible_latest_from_grocery_api": 391,
+          "eligible_latest_from_portal_search": 1350,
+          "eligible_latest_from_retained_api": 263,
+          "eligible_latest_recovered_missing_leading_zero_gtins": 0,
+          "grocery_api_distinct_source_ids": 600,
+          "grocery_api_missing_leading_zero_recovery_checksum_failures": 0,
+          "grocery_api_missing_raw_gtin_records": 0,
+          "grocery_api_raw_grocery_records": 600,
+          "grocery_api_records_scanned": 600,
+          "grocery_api_unsupported_raw_gtin_length_records": 0,
+          "known_discontinuation_marker_grocery_latest_gtins_excluded": 528,
+          "latest_gtins_without_grocery_channel": 418036,
+          "latest_records_rejected_by_quality_filter": 245,
+          "latest_recovered_missing_leading_zero_gtins": 1149,
+          "latest_recovered_missing_leading_zero_non_grocery_gtins_excluded": 1149,
+          "missing_leading_zero_recovery_checksum_failures": 8545,
+          "missing_raw_gtin_records": 4,
+          "portal_distinct_source_ids": 4096,
+          "portal_distinct_source_ids_new_after_api_source_id_dedup": 3435,
+          "portal_search_missing_leading_zero_recovery_checksum_failures": 0,
+          "portal_search_missing_raw_gtin_records": 0,
+          "portal_search_raw_grocery_records": 4096,
+          "portal_search_records_scanned": 4096,
+          "portal_search_unsupported_raw_gtin_length_records": 0,
+          "raw_gtin_length_distribution_by_component": {
+            "bulk": {
+              "0": 4,
+              "10": 194,
+              "11": 9768,
+              "12": 381821,
+              "13": 32406,
+              "14": 28176,
+              "15": 2,
+              "16": 1,
+              "4": 1,
+              "6": 8,
+              "7": 22,
+              "8": 3049,
+              "9": 6
+            },
+            "grocery_api": {
+              "14": 600
+            },
+            "portal_search": {
+              "14": 4096
+            },
+            "retained_api": {
+              "14": 600
+            }
+          },
+          "recovered_missing_leading_zero_gtin_records": 1245,
+          "recovered_missing_leading_zero_records_by_component_and_raw_length": {
+            "bulk": {
+              "11": 1244,
+              "7": 1
+            },
+            "grocery_api": {},
+            "portal_search": {},
+            "retained_api": {}
+          },
+          "recovered_missing_leading_zero_unique_canonical_gtins": 1244,
+          "recovered_missing_leading_zero_unique_canonical_gtins_by_component": {
+            "bulk": 1244,
+            "grocery_api": 0,
+            "portal_search": 0,
+            "retained_api": 0
+          },
+          "recovered_missing_leading_zero_versions_that_changed_latest": 122,
+          "retained_api_distinct_source_ids": 600,
+          "retained_api_missing_leading_zero_recovery_checksum_failures": 0,
+          "retained_api_missing_raw_gtin_records": 0,
+          "retained_api_raw_grocery_records": 268,
+          "retained_api_records_scanned": 600,
+          "retained_api_unsupported_raw_gtin_length_records": 0,
+          "retained_grocery_api_source_id_overlap": 207,
+          "superseded_versions_excluded": 27814,
+          "unique_valid_gtins": 422140,
+          "unknown_discontinuation_status_grocery_latest_gtins": 3557,
+          "unsupported_raw_gtin_length_records": 212,
+          "valid_gtin_version_records": 449954
+        },
+        "retained_v2_base": {
+          "eligible_candidates": 594,
+          "records_rejected_missing_identity_energy_or_barcode": 6,
+          "records_scanned": 600
+        }
+      },
+      "source_artifacts": [
+        {
+          "bytes": 1696715,
+          "filename": "branded-api-2026-08-18-page-001.json",
+          "sha256": "fa87814d11d7b036f51145dc741599a1edb6cae58b27ebd25eec02982c03f52f"
+        },
+        {
+          "bytes": 1630431,
+          "filename": "branded-api-2026-08-18-page-002.json",
+          "sha256": "5c3e566e43b84fddfd10b06bfc32f756d4e1ec36293d3224ae72712f0b4019df"
+        },
+        {
+          "bytes": 1677193,
+          "filename": "branded-api-2026-08-18-page-003.json",
+          "sha256": "f5d55d689642032df47dec50a7c8bca16a647afb38a9367bba4e8adb29baba9d"
+        },
+        {
+          "bytes": 1669915,
+          "filename": "branded-grocery-api-2026-08-18-page-001.json",
+          "sha256": "179d6dada9ac2e11913e6cf164918c11de60fc05355bc7496c5c74bbe87e4d91"
+        },
+        {
+          "bytes": 1752016,
+          "filename": "branded-grocery-api-2026-08-18-page-002.json",
+          "sha256": "4134ee559dfc7c17f01e4a5f3fa6762ef346a051228b4f06f1972cc853a3f8fd"
+        },
+        {
+          "bytes": 1727208,
+          "filename": "branded-grocery-api-2026-08-18-page-003.json",
+          "sha256": "6ec792edba12d79885416a0f1150ba1570b707a0ff6206617699fd884d97c118"
+        },
+        {
+          "bytes": 410578,
+          "filename": "branded-portal-grocery-2026-08-18-page-001.json",
+          "sha256": "004f165d5a74a034edd5c76a5224cc10be67e008d5dad82080b33e57c8f2a0a9"
+        },
+        {
+          "bytes": 413636,
+          "filename": "branded-portal-grocery-2026-08-18-page-002.json",
+          "sha256": "18595a936f351ddfb7c17bb072a9867207f92efa3dcc581e04fb2030b13349fc"
+        },
+        {
+          "bytes": 420808,
+          "filename": "branded-portal-grocery-2026-08-18-page-003.json",
+          "sha256": "6195b88ddc32d3f86f0f9cd5a35db06b3d41cadbf1ada3a67229bbf99cd38ed8"
+        },
+        {
+          "bytes": 434483,
+          "filename": "branded-portal-grocery-2026-08-18-page-004.json",
+          "sha256": "ac52051cdb59e1d42cf2697f61811a4031f1d23e5aeb7d87b65f54311280fb71"
+        },
+        {
+          "bytes": 422794,
+          "filename": "branded-portal-grocery-2026-08-18-page-005.json",
+          "sha256": "52cf16f4ccba3e533681fad74706799976ba38618f134b8f1a5649cb438bd1f1"
+        },
+        {
+          "bytes": 408979,
+          "filename": "branded-portal-grocery-2026-08-18-page-006.json",
+          "sha256": "ab8be179cefeb6d6baf70bfff34954486d208169064a1946018e300d0bca9af4"
+        },
+        {
+          "bytes": 418044,
+          "filename": "branded-portal-grocery-2026-08-18-page-007.json",
+          "sha256": "7a9866704d94780e7243c8e724394f1bdec351a84f1afb51d8995ac47e3530fd"
+        },
+        {
+          "bytes": 409175,
+          "filename": "branded-portal-grocery-2026-08-18-page-008.json",
+          "sha256": "486a9ca5e59b42e0a00d11677987111a4c74240c995a132bf2cc3a50762f9fef"
+        },
+        {
+          "bytes": 492947,
+          "filename": "branded-portal-grocery-2026-08-18-page-009.json",
+          "sha256": "7433b9ebe2556d79ec061b30c309d44a23837eae78acdc03bfc3f7682122920e"
+        },
+        {
+          "bytes": 475828,
+          "filename": "branded-portal-grocery-2026-08-18-page-010.json",
+          "sha256": "96c54504af96388ba08579fc78b18b86870db453e9ba77d2bee24106a78b5e79"
+        },
+        {
+          "bytes": 439127,
+          "filename": "branded-portal-grocery-2026-08-18-page-011.json",
+          "sha256": "59b88e5e83b2eb7cc8fb66fb64821ec35daa4edbba6e8d22b61322d210e0790c"
+        },
+        {
+          "bytes": 444056,
+          "filename": "branded-portal-grocery-2026-08-18-page-012.json",
+          "sha256": "24017d5a2d1e200d3bcfdf99775c596ef124d594a4c1dbee73752a556ba3bd8c"
+        },
+        {
+          "bytes": 431487,
+          "filename": "branded-portal-grocery-2026-08-18-page-013.json",
+          "sha256": "35a9d4581ebdaa83aae7b5b4a91119aeba9e91b08222715f0c534d05a5926f9f"
+        },
+        {
+          "bytes": 443589,
+          "filename": "branded-portal-grocery-2026-08-18-page-014.json",
+          "sha256": "105d1e1a240fe54e0bcc3b8cd11905bd59318b8e052ef1c49851dea8b041dbde"
+        },
+        {
+          "bytes": 412771,
+          "filename": "branded-portal-grocery-2026-08-18-page-015.json",
+          "sha256": "f1f580aaa0e175fc3f89478a4622de886d67cc1e41a8648d7dbfe3aa1200bbf0"
+        },
+        {
+          "bytes": 398152,
+          "filename": "branded-portal-grocery-2026-08-18-page-016.json",
+          "sha256": "6f68b5ce4021eb26a02ce29de96cb9ab37a6ab97c8269f927ccf7fb93514a0fe"
+        },
+        {
+          "bytes": 387175,
+          "filename": "branded-portal-grocery-2026-08-18-page-017.json",
+          "sha256": "72236bd18619809c4d734c2b75c4f7af31547644166ea0f8cc7fead3c7980ab8"
+        },
+        {
+          "bytes": 411591,
+          "filename": "branded-portal-grocery-2026-08-18-page-018.json",
+          "sha256": "cbc3f8f90f3da0990d951f59e5f402ce67744576b5df12b1d5b570023db6fcab"
+        },
+        {
+          "bytes": 469886,
+          "filename": "branded-portal-grocery-2026-08-18-page-019.json",
+          "sha256": "2aa85f71dc53d96d650a7e60aa16b47311e9f3eb37bb3c289c33aea366b4efe2"
+        },
+        {
+          "bytes": 468606,
+          "filename": "branded-portal-grocery-2026-08-18-page-020.json",
+          "sha256": "6ba3f623de68857c6b11249b470be36579468e284ce425e9d24b8dff0f0b54c6"
+        },
+        {
+          "bytes": 413447,
+          "filename": "branded-portal-grocery-2026-08-18-page-021.json",
+          "sha256": "65d46c7712a1066c05284c226495fbecd9fcfd63acc2615e5528b2853aa45905"
+        },
+        {
+          "bytes": 443275,
+          "filename": "branded-portal-grocery-2026-08-18-page-022.json",
+          "sha256": "d44da2fa46404a6d60d1c260cf2f3f12a8834a2793d8d4345c86ebfd52891f19"
+        },
+        {
+          "bytes": 434887,
+          "filename": "branded-portal-grocery-2026-08-18-page-023.json",
+          "sha256": "3ef74ad6ca8e31bf44d59757837c09343fada2b8c637d1ef629d8dd70ca88fde"
+        },
+        {
+          "bytes": 400598,
+          "filename": "branded-portal-grocery-2026-08-18-page-024.json",
+          "sha256": "11b87200505b984254aaeb94c5cb025a615796c53f95994d0e09b1aa3fd2c195"
+        },
+        {
+          "bytes": 398447,
+          "filename": "branded-portal-grocery-2026-08-18-page-025.json",
+          "sha256": "5fb1515f0d6730d7369b3507942f15037126eab74aa0620a7f7eb2f42556f4e4"
+        },
+        {
+          "bytes": 416290,
+          "filename": "branded-portal-grocery-2026-08-18-page-026.json",
+          "sha256": "f20509188dccd472abcb4e2f59b8db93e49c810db6ca2e1254a3a7df353eb7dd"
+        },
+        {
+          "bytes": 417681,
+          "filename": "branded-portal-grocery-2026-08-18-page-027.json",
+          "sha256": "a3e30e300fcf72f505009966e4a106a460688c846ba95fddf0daa5db460a86e9"
+        },
+        {
+          "bytes": 465574,
+          "filename": "branded-portal-grocery-2026-08-18-page-028.json",
+          "sha256": "61b5a059469745d76619dc74c60f51b7435fc00310a0b3426847df0b75e15eb8"
+        },
+        {
+          "bytes": 394269,
+          "filename": "branded-portal-grocery-2026-08-18-page-029.json",
+          "sha256": "e9f2bc0e119d5d01dfbf0a903ee8da79869902484b71e7fd21ab417263199b31"
+        },
+        {
+          "bytes": 410471,
+          "filename": "branded-portal-grocery-2026-08-18-page-030.json",
+          "sha256": "d04916431af10953b48230a34d005acd150eb461704ce0407bee6c376dcae83b"
+        },
+        {
+          "bytes": 455744,
+          "filename": "branded-portal-grocery-2026-08-18-page-031.json",
+          "sha256": "67c40a107899aacad1a5acb75a386ea849c4056b9f2c1f5a1087413de5fa2fb6"
+        },
+        {
+          "bytes": 416178,
+          "filename": "branded-portal-grocery-2026-08-18-page-032.json",
+          "sha256": "145110f9447b44cc69059bcbcef316c29d373fb5676277adaa40f14ae99e7477"
+        },
+        {
+          "bytes": 398565,
+          "filename": "branded-portal-grocery-2026-08-18-page-033.json",
+          "sha256": "b35b714ffbbe56513b2387c08f84f020b3e6e22c6da8a4a4a32d6d70c1520bf8"
+        },
+        {
+          "bytes": 390648,
+          "filename": "branded-portal-grocery-2026-08-18-page-034.json",
+          "sha256": "77a3528c85aa99719328a0cf8f9d3de4773a6458a5215579df45945d918e5e3e"
+        },
+        {
+          "bytes": 420828,
+          "filename": "branded-portal-grocery-2026-08-18-page-035.json",
+          "sha256": "5bad74d492529854e6a31000e674ddb088c0be8295629e605ae77827e2d7c9c4"
+        },
+        {
+          "bytes": 431475,
+          "filename": "branded-portal-grocery-2026-08-18-page-036.json",
+          "sha256": "92a56b36db631929a5c07d01291d6d99b3d01cbe13693da90cc9a8102c8fe18b"
+        },
+        {
+          "bytes": 399975,
+          "filename": "branded-portal-grocery-2026-08-18-page-037.json",
+          "sha256": "b997a8b1d8e6763deb632ee7d6fb27ed61d3e803e35c5f955c6be2f20e876e0c"
+        },
+        {
+          "bytes": 383279,
+          "filename": "branded-portal-grocery-2026-08-18-page-038.json",
+          "sha256": "3c5416a75246fc8042e20144f105b58ca518057d9960c0ef417131d2fa54d246"
+        },
+        {
+          "bytes": 379916,
+          "filename": "branded-portal-grocery-2026-08-18-page-039.json",
+          "sha256": "87edc7e9e1cd2fddd327c9e8e5487b421e12dfb40896f3d2d25f64c97d22145a"
+        },
+        {
+          "bytes": 382226,
+          "filename": "branded-portal-grocery-2026-08-18-page-040.json",
+          "sha256": "f53366d01286f9a565b19bda92083e25a6a33a6b72c78276cd1afea6777c6c5a"
+        },
+        {
+          "bytes": 384497,
+          "filename": "branded-portal-grocery-2026-08-18-page-041.json",
+          "sha256": "70955d1b3a8299f04e9b73bbba5b8dbd2b578c934b2727eb9447868a77ebf0b5"
+        },
+        {
+          "bytes": 419378,
+          "filename": "branded-portal-grocery-2026-08-18-page-042.json",
+          "sha256": "4b4ec87772ae887d97369b0a3ab3ad41ed44f7ae0d500f07235dc85e71bccebc"
+        },
+        {
+          "bytes": 400643,
+          "filename": "branded-portal-grocery-2026-08-18-page-043.json",
+          "sha256": "e667685fe08392d46c0fe7399e92d4721d88c329872a83cb3dbff0ec9584474d"
+        },
+        {
+          "bytes": 420569,
+          "filename": "branded-portal-grocery-2026-08-18-page-044.json",
+          "sha256": "c4c1fe1116fb6803a79843f70228c3eb7365010e83bee30087be4ec73e7ba94b"
+        },
+        {
+          "bytes": 403489,
+          "filename": "branded-portal-grocery-2026-08-18-page-045.json",
+          "sha256": "c86631e49618b2e9931dbe786b4f0c21e5bdeb22d4de8f87d8a4a3102a9d4f70"
+        },
+        {
+          "bytes": 420278,
+          "filename": "branded-portal-grocery-2026-08-18-page-046.json",
+          "sha256": "93bbe575ebdce88b4b009866f4be21afdcb1c365dac8aefc2df13db69ad50ab6"
+        },
+        {
+          "bytes": 452331,
+          "filename": "branded-portal-grocery-2026-08-18-page-047.json",
+          "sha256": "6a5261a4a8840cdf9660c35d3a0adebf14316d35a8b1474e3e41d97ee36b8ade"
+        },
+        {
+          "bytes": 484747,
+          "filename": "branded-portal-grocery-2026-08-18-page-048.json",
+          "sha256": "50b246c62c6d9f8488ffc07bf07ead59613032a0590bcc914f8a82656ecf46df"
+        },
+        {
+          "bytes": 499492,
+          "filename": "branded-portal-grocery-2026-08-18-page-049.json",
+          "sha256": "40809145fd7b9071bd1e237954796d2e0212bbaccaf44a20ede9dabfcf4b7c38"
+        },
+        {
+          "bytes": 422684,
+          "filename": "branded-portal-grocery-2026-08-18-page-050.json",
+          "sha256": "ed68eeed286e939d49c69a687f7713a3d281b35f3e42cb215f4229cdb7b99e0a"
+        },
+        {
+          "bytes": 422260,
+          "filename": "branded-portal-grocery-2026-08-18-page-051.json",
+          "sha256": "a1fbebf205662a3d289d3fb927bdde85e904e11981440e2326a0294db294d6fb"
+        },
+        {
+          "bytes": 437968,
+          "filename": "branded-portal-grocery-2026-08-18-page-052.json",
+          "sha256": "34dcb060a2c09fb91426ee06e3444cfb07e59214a56c713ea1a1bb8a55e8c55f"
+        },
+        {
+          "bytes": 414847,
+          "filename": "branded-portal-grocery-2026-08-18-page-053.json",
+          "sha256": "92152b89e55caf5ec49d1c05d2495fd9e3a290b76bfc95b43337054f2979cd83"
+        },
+        {
+          "bytes": 433707,
+          "filename": "branded-portal-grocery-2026-08-18-page-054.json",
+          "sha256": "1c183880410c2ccc423f87ed88630e60e1f24c2dd68a80b7439a74d7ed3a745b"
+        },
+        {
+          "bytes": 388235,
+          "filename": "branded-portal-grocery-2026-08-18-page-055.json",
+          "sha256": "655a3ecc2d242335916961cfe30d2010bd0414feda49c76ba0f12e0ab1f97375"
+        },
+        {
+          "bytes": 411076,
+          "filename": "branded-portal-grocery-2026-08-18-page-056.json",
+          "sha256": "6beb64b60b9dde5f5440c80aba793ad554416a4478d210d4c3c61186505b1efb"
+        },
+        {
+          "bytes": 420640,
+          "filename": "branded-portal-grocery-2026-08-18-page-057.json",
+          "sha256": "ca8992ff2a9e954b338d0c47bc4d62f50536a44a9af1ceedd330bca175f3c125"
+        },
+        {
+          "bytes": 391723,
+          "filename": "branded-portal-grocery-2026-08-18-page-058.json",
+          "sha256": "c59d2167ed86a03ec28e4e13d77ebd16ade06ee56e1f73d353d293ced9fe6e5c"
+        },
+        {
+          "bytes": 383137,
+          "filename": "branded-portal-grocery-2026-08-18-page-059.json",
+          "sha256": "90c105bbb1131f60c413c091a8d8f145d9100839fdcc72ff8fa70fd625b03db9"
+        },
+        {
+          "bytes": 382352,
+          "filename": "branded-portal-grocery-2026-08-18-page-060.json",
+          "sha256": "12ebafeca3901bf3505b8376e308679ead4f2e03704b43bfb7901222783360f6"
+        },
+        {
+          "bytes": 469166,
+          "filename": "branded-portal-grocery-2026-08-18-page-061.json",
+          "sha256": "261c6fbe22e28670056fac59ff870a3762192c067ccb65c3e47f8838d9185d13"
+        },
+        {
+          "bytes": 423953,
+          "filename": "branded-portal-grocery-2026-08-18-page-062.json",
+          "sha256": "c107d148ce89e3bf35ac8116749b38e8de4a11a1a7c693637abeb5bc4e851df5"
+        },
+        {
+          "bytes": 443888,
+          "filename": "branded-portal-grocery-2026-08-18-page-063.json",
+          "sha256": "e06e4c01b5b296771c2350123344a709bcd0124adf26db45075595a5c0188dad"
+        },
+        {
+          "bytes": 448035,
+          "filename": "branded-portal-grocery-2026-08-18-page-064.json",
+          "sha256": "444acd7b2fcce77e96a23e4ee8b002f95bcb1e5c898d9d2e475c3f6811b90eaf"
+        },
+        {
+          "bytes": 502123,
+          "filename": "branded-portal-grocery-2026-08-18-page-065.json",
+          "sha256": "9a054720a7320fce37b4105dae997fd9a942a6e997b9af13eef2480aa3d41623"
+        },
+        {
+          "bytes": 449783,
+          "filename": "branded-portal-grocery-2026-08-18-page-066.json",
+          "sha256": "e9a0ff73a4cfddd0c7fa355f53f84c0c2e0f624f593dd47b1591f6aab73e8135"
+        },
+        {
+          "bytes": 429101,
+          "filename": "branded-portal-grocery-2026-08-18-page-067.json",
+          "sha256": "03b24c2d34d1d440e509515f6de414695c4b4e621314d0380609eec49bd294a0"
+        },
+        {
+          "bytes": 433819,
+          "filename": "branded-portal-grocery-2026-08-18-page-068.json",
+          "sha256": "0ed9fa752bd5a2b7a4342474ff1276ece782e6435ef55a956ab701177cd6b226"
+        },
+        {
+          "bytes": 416245,
+          "filename": "branded-portal-grocery-2026-08-18-page-069.json",
+          "sha256": "9c2da3ca9d6c87510f727a4913601355428c71d4d3fe84004167805234042857"
+        },
+        {
+          "bytes": 421467,
+          "filename": "branded-portal-grocery-2026-08-18-page-070.json",
+          "sha256": "c69efac9ae4983040c88a2389337cc5127db4134176a972e22ab2ef0d62c521b"
+        },
+        {
+          "bytes": 467723,
+          "filename": "branded-portal-grocery-2026-08-18-page-071.json",
+          "sha256": "c3ccab43440756b56ac0ea165b55384b74324e20049ea624ed58c534c54b1670"
+        },
+        {
+          "bytes": 469227,
+          "filename": "branded-portal-grocery-2026-08-18-page-072.json",
+          "sha256": "c86e31019fe6eccad5c688ba14c13898af39062b7d4282f2ea68f672e1a23703"
+        },
+        {
+          "bytes": 440953,
+          "filename": "branded-portal-grocery-2026-08-18-page-073.json",
+          "sha256": "3fc86d0824295ce4d6387cf62e7ba37ca4b25cdb2f840251a11ba3f07f20e9c9"
+        },
+        {
+          "bytes": 416868,
+          "filename": "branded-portal-grocery-2026-08-18-page-074.json",
+          "sha256": "95941f18ec1d08fdfb93e571a43f3979fc3496be205ae1eafc6242769770dfd6"
+        },
+        {
+          "bytes": 427200,
+          "filename": "branded-portal-grocery-2026-08-18-page-075.json",
+          "sha256": "f7bb876ad07b14db90511853590393fe7923188ffa8410ba413398cd4c578863"
+        },
+        {
+          "bytes": 435504,
+          "filename": "branded-portal-grocery-2026-08-18-page-076.json",
+          "sha256": "1a7ba0b8284ab7df79507176ba978ddb45af6d2b79e6c0a3537b0b4752a19228"
+        },
+        {
+          "bytes": 448748,
+          "filename": "branded-portal-grocery-2026-08-18-page-077.json",
+          "sha256": "93ff957bc42182731432db7c5729e93002e6f201d376b85abf24b90910623a5e"
+        },
+        {
+          "bytes": 896359,
+          "filename": "branded-portal-grocery-2026-08-18-page-078.json",
+          "sha256": "53d4f8770cac53eabdc42848bb45d4cf1efb906d3e31a0c36998e95940647cfb"
+        },
+        {
+          "bytes": 841295,
+          "filename": "branded-portal-grocery-2026-08-18-page-079.json",
+          "sha256": "1c34ac0050b7b155f83c80ac1cf12cd01cfc606cc9d47a5a8e93e6651a75c929"
+        },
+        {
+          "bytes": 504115,
+          "filename": "branded-portal-grocery-2026-08-18-page-080.json",
+          "sha256": "dbf33413f99eb7d9fd9edeb207517009ddc4c4810b4d5fd1c20e50c2931b3791"
+        },
+        {
+          "bytes": 432044,
+          "filename": "branded-portal-grocery-2026-08-18-page-081.json",
+          "sha256": "0eb542eccfe112701c5ee4bdf945c8ca46508b8d93672234834543913113ce91"
+        },
+        {
+          "bytes": 456357,
+          "filename": "branded-portal-grocery-2026-08-18-page-082.json",
+          "sha256": "33eecfa9813a91971409d892e52fd4b1dda5c852d126539e47d2826b15da3c06"
+        },
+        {
+          "bytes": 204270542,
+          "filename": "branded-2026-04-30.zip",
+          "sha256": "57b0f122e61cf2840f03c11e9520275d0d2018dc036e16273fcd3cd370db2256"
+        }
+      ],
+      "source_components": {
+        "retained_v2_base": {
+          "acquisition_url": "https://api.nal.usda.gov/fdc/v1/foods/search?dataType=Branded&pageSize=200&sortBy=publishedDate&sortOrder=desc",
+          "artifacts": [
+            {
+              "bytes": 1696715,
+              "filename": "branded-api-2026-08-18-page-001.json",
+              "sha256": "fa87814d11d7b036f51145dc741599a1edb6cae58b27ebd25eec02982c03f52f"
+            },
+            {
+              "bytes": 1630431,
+              "filename": "branded-api-2026-08-18-page-002.json",
+              "sha256": "5c3e566e43b84fddfd10b06bfc32f756d4e1ec36293d3224ae72712f0b4019df"
+            },
+            {
+              "bytes": 1677193,
+              "filename": "branded-api-2026-08-18-page-003.json",
+              "sha256": "f5d55d689642032df47dec50a7c8bca16a647afb38a9367bba4e8adb29baba9d"
+            }
+          ],
+          "pages": 3,
+          "purpose": "reproduce and retain the previous 400 Branded rows",
+          "release": "2026-08-18",
+          "role": "retained-v2-source-fixture",
+          "source": "official FoodData Central API GET snapshot"
+        },
+        "v3_grocery_api_bridge": {
+          "acquisition_url": "https://api.nal.usda.gov/fdc/v1/foods/search?query=tradeChannels%3AGROCERY&dataType=Branded&pageSize=200&sortBy=publishedDate&sortOrder=desc",
+          "artifacts": [
+            {
+              "bytes": 1669915,
+              "filename": "branded-grocery-api-2026-08-18-page-001.json",
+              "sha256": "179d6dada9ac2e11913e6cf164918c11de60fc05355bc7496c5c74bbe87e4d91"
+            },
+            {
+              "bytes": 1752016,
+              "filename": "branded-grocery-api-2026-08-18-page-002.json",
+              "sha256": "4134ee559dfc7c17f01e4a5f3fa6762ef346a051228b4f06f1972cc853a3f8fd"
+            },
+            {
+              "bytes": 1727208,
+              "filename": "branded-grocery-api-2026-08-18-page-003.json",
+              "sha256": "6ec792edba12d79885416a0f1150ba1570b707a0ff6206617699fd884d97c118"
+            }
+          ],
+          "discontinuation_evidence": "Search rows may omit discontinuedDate; missing evidence is classified UNKNOWN, never active.",
+          "pages": 3,
+          "purpose": "supplement the April bulk with newer official rows before cross-source latest-version resolution",
+          "raw_filter": "tradeChannels contains GROCERY",
+          "release": "2026-08-18",
+          "role": "v3-expansion-newer-api-candidate-source",
+          "source": "official FoodData Central API GROCERY query snapshot"
+        },
+        "v3_official_portal_search": {
+          "acquisition_url": "https://fdc.nal.usda.gov/portal-data/external/search",
+          "artifacts": [
+            {
+              "bytes": 410578,
+              "filename": "branded-portal-grocery-2026-08-18-page-001.json",
+              "sha256": "004f165d5a74a034edd5c76a5224cc10be67e008d5dad82080b33e57c8f2a0a9"
+            },
+            {
+              "bytes": 413636,
+              "filename": "branded-portal-grocery-2026-08-18-page-002.json",
+              "sha256": "18595a936f351ddfb7c17bb072a9867207f92efa3dcc581e04fb2030b13349fc"
+            },
+            {
+              "bytes": 420808,
+              "filename": "branded-portal-grocery-2026-08-18-page-003.json",
+              "sha256": "6195b88ddc32d3f86f0f9cd5a35db06b3d41cadbf1ada3a67229bbf99cd38ed8"
+            },
+            {
+              "bytes": 434483,
+              "filename": "branded-portal-grocery-2026-08-18-page-004.json",
+              "sha256": "ac52051cdb59e1d42cf2697f61811a4031f1d23e5aeb7d87b65f54311280fb71"
+            },
+            {
+              "bytes": 422794,
+              "filename": "branded-portal-grocery-2026-08-18-page-005.json",
+              "sha256": "52cf16f4ccba3e533681fad74706799976ba38618f134b8f1a5649cb438bd1f1"
+            },
+            {
+              "bytes": 408979,
+              "filename": "branded-portal-grocery-2026-08-18-page-006.json",
+              "sha256": "ab8be179cefeb6d6baf70bfff34954486d208169064a1946018e300d0bca9af4"
+            },
+            {
+              "bytes": 418044,
+              "filename": "branded-portal-grocery-2026-08-18-page-007.json",
+              "sha256": "7a9866704d94780e7243c8e724394f1bdec351a84f1afb51d8995ac47e3530fd"
+            },
+            {
+              "bytes": 409175,
+              "filename": "branded-portal-grocery-2026-08-18-page-008.json",
+              "sha256": "486a9ca5e59b42e0a00d11677987111a4c74240c995a132bf2cc3a50762f9fef"
+            },
+            {
+              "bytes": 492947,
+              "filename": "branded-portal-grocery-2026-08-18-page-009.json",
+              "sha256": "7433b9ebe2556d79ec061b30c309d44a23837eae78acdc03bfc3f7682122920e"
+            },
+            {
+              "bytes": 475828,
+              "filename": "branded-portal-grocery-2026-08-18-page-010.json",
+              "sha256": "96c54504af96388ba08579fc78b18b86870db453e9ba77d2bee24106a78b5e79"
+            },
+            {
+              "bytes": 439127,
+              "filename": "branded-portal-grocery-2026-08-18-page-011.json",
+              "sha256": "59b88e5e83b2eb7cc8fb66fb64821ec35daa4edbba6e8d22b61322d210e0790c"
+            },
+            {
+              "bytes": 444056,
+              "filename": "branded-portal-grocery-2026-08-18-page-012.json",
+              "sha256": "24017d5a2d1e200d3bcfdf99775c596ef124d594a4c1dbee73752a556ba3bd8c"
+            },
+            {
+              "bytes": 431487,
+              "filename": "branded-portal-grocery-2026-08-18-page-013.json",
+              "sha256": "35a9d4581ebdaa83aae7b5b4a91119aeba9e91b08222715f0c534d05a5926f9f"
+            },
+            {
+              "bytes": 443589,
+              "filename": "branded-portal-grocery-2026-08-18-page-014.json",
+              "sha256": "105d1e1a240fe54e0bcc3b8cd11905bd59318b8e052ef1c49851dea8b041dbde"
+            },
+            {
+              "bytes": 412771,
+              "filename": "branded-portal-grocery-2026-08-18-page-015.json",
+              "sha256": "f1f580aaa0e175fc3f89478a4622de886d67cc1e41a8648d7dbfe3aa1200bbf0"
+            },
+            {
+              "bytes": 398152,
+              "filename": "branded-portal-grocery-2026-08-18-page-016.json",
+              "sha256": "6f68b5ce4021eb26a02ce29de96cb9ab37a6ab97c8269f927ccf7fb93514a0fe"
+            },
+            {
+              "bytes": 387175,
+              "filename": "branded-portal-grocery-2026-08-18-page-017.json",
+              "sha256": "72236bd18619809c4d734c2b75c4f7af31547644166ea0f8cc7fead3c7980ab8"
+            },
+            {
+              "bytes": 411591,
+              "filename": "branded-portal-grocery-2026-08-18-page-018.json",
+              "sha256": "cbc3f8f90f3da0990d951f59e5f402ce67744576b5df12b1d5b570023db6fcab"
+            },
+            {
+              "bytes": 469886,
+              "filename": "branded-portal-grocery-2026-08-18-page-019.json",
+              "sha256": "2aa85f71dc53d96d650a7e60aa16b47311e9f3eb37bb3c289c33aea366b4efe2"
+            },
+            {
+              "bytes": 468606,
+              "filename": "branded-portal-grocery-2026-08-18-page-020.json",
+              "sha256": "6ba3f623de68857c6b11249b470be36579468e284ce425e9d24b8dff0f0b54c6"
+            },
+            {
+              "bytes": 413447,
+              "filename": "branded-portal-grocery-2026-08-18-page-021.json",
+              "sha256": "65d46c7712a1066c05284c226495fbecd9fcfd63acc2615e5528b2853aa45905"
+            },
+            {
+              "bytes": 443275,
+              "filename": "branded-portal-grocery-2026-08-18-page-022.json",
+              "sha256": "d44da2fa46404a6d60d1c260cf2f3f12a8834a2793d8d4345c86ebfd52891f19"
+            },
+            {
+              "bytes": 434887,
+              "filename": "branded-portal-grocery-2026-08-18-page-023.json",
+              "sha256": "3ef74ad6ca8e31bf44d59757837c09343fada2b8c637d1ef629d8dd70ca88fde"
+            },
+            {
+              "bytes": 400598,
+              "filename": "branded-portal-grocery-2026-08-18-page-024.json",
+              "sha256": "11b87200505b984254aaeb94c5cb025a615796c53f95994d0e09b1aa3fd2c195"
+            },
+            {
+              "bytes": 398447,
+              "filename": "branded-portal-grocery-2026-08-18-page-025.json",
+              "sha256": "5fb1515f0d6730d7369b3507942f15037126eab74aa0620a7f7eb2f42556f4e4"
+            },
+            {
+              "bytes": 416290,
+              "filename": "branded-portal-grocery-2026-08-18-page-026.json",
+              "sha256": "f20509188dccd472abcb4e2f59b8db93e49c810db6ca2e1254a3a7df353eb7dd"
+            },
+            {
+              "bytes": 417681,
+              "filename": "branded-portal-grocery-2026-08-18-page-027.json",
+              "sha256": "a3e30e300fcf72f505009966e4a106a460688c846ba95fddf0daa5db460a86e9"
+            },
+            {
+              "bytes": 465574,
+              "filename": "branded-portal-grocery-2026-08-18-page-028.json",
+              "sha256": "61b5a059469745d76619dc74c60f51b7435fc00310a0b3426847df0b75e15eb8"
+            },
+            {
+              "bytes": 394269,
+              "filename": "branded-portal-grocery-2026-08-18-page-029.json",
+              "sha256": "e9f2bc0e119d5d01dfbf0a903ee8da79869902484b71e7fd21ab417263199b31"
+            },
+            {
+              "bytes": 410471,
+              "filename": "branded-portal-grocery-2026-08-18-page-030.json",
+              "sha256": "d04916431af10953b48230a34d005acd150eb461704ce0407bee6c376dcae83b"
+            },
+            {
+              "bytes": 455744,
+              "filename": "branded-portal-grocery-2026-08-18-page-031.json",
+              "sha256": "67c40a107899aacad1a5acb75a386ea849c4056b9f2c1f5a1087413de5fa2fb6"
+            },
+            {
+              "bytes": 416178,
+              "filename": "branded-portal-grocery-2026-08-18-page-032.json",
+              "sha256": "145110f9447b44cc69059bcbcef316c29d373fb5676277adaa40f14ae99e7477"
+            },
+            {
+              "bytes": 398565,
+              "filename": "branded-portal-grocery-2026-08-18-page-033.json",
+              "sha256": "b35b714ffbbe56513b2387c08f84f020b3e6e22c6da8a4a4a32d6d70c1520bf8"
+            },
+            {
+              "bytes": 390648,
+              "filename": "branded-portal-grocery-2026-08-18-page-034.json",
+              "sha256": "77a3528c85aa99719328a0cf8f9d3de4773a6458a5215579df45945d918e5e3e"
+            },
+            {
+              "bytes": 420828,
+              "filename": "branded-portal-grocery-2026-08-18-page-035.json",
+              "sha256": "5bad74d492529854e6a31000e674ddb088c0be8295629e605ae77827e2d7c9c4"
+            },
+            {
+              "bytes": 431475,
+              "filename": "branded-portal-grocery-2026-08-18-page-036.json",
+              "sha256": "92a56b36db631929a5c07d01291d6d99b3d01cbe13693da90cc9a8102c8fe18b"
+            },
+            {
+              "bytes": 399975,
+              "filename": "branded-portal-grocery-2026-08-18-page-037.json",
+              "sha256": "b997a8b1d8e6763deb632ee7d6fb27ed61d3e803e35c5f955c6be2f20e876e0c"
+            },
+            {
+              "bytes": 383279,
+              "filename": "branded-portal-grocery-2026-08-18-page-038.json",
+              "sha256": "3c5416a75246fc8042e20144f105b58ca518057d9960c0ef417131d2fa54d246"
+            },
+            {
+              "bytes": 379916,
+              "filename": "branded-portal-grocery-2026-08-18-page-039.json",
+              "sha256": "87edc7e9e1cd2fddd327c9e8e5487b421e12dfb40896f3d2d25f64c97d22145a"
+            },
+            {
+              "bytes": 382226,
+              "filename": "branded-portal-grocery-2026-08-18-page-040.json",
+              "sha256": "f53366d01286f9a565b19bda92083e25a6a33a6b72c78276cd1afea6777c6c5a"
+            },
+            {
+              "bytes": 384497,
+              "filename": "branded-portal-grocery-2026-08-18-page-041.json",
+              "sha256": "70955d1b3a8299f04e9b73bbba5b8dbd2b578c934b2727eb9447868a77ebf0b5"
+            },
+            {
+              "bytes": 419378,
+              "filename": "branded-portal-grocery-2026-08-18-page-042.json",
+              "sha256": "4b4ec87772ae887d97369b0a3ab3ad41ed44f7ae0d500f07235dc85e71bccebc"
+            },
+            {
+              "bytes": 400643,
+              "filename": "branded-portal-grocery-2026-08-18-page-043.json",
+              "sha256": "e667685fe08392d46c0fe7399e92d4721d88c329872a83cb3dbff0ec9584474d"
+            },
+            {
+              "bytes": 420569,
+              "filename": "branded-portal-grocery-2026-08-18-page-044.json",
+              "sha256": "c4c1fe1116fb6803a79843f70228c3eb7365010e83bee30087be4ec73e7ba94b"
+            },
+            {
+              "bytes": 403489,
+              "filename": "branded-portal-grocery-2026-08-18-page-045.json",
+              "sha256": "c86631e49618b2e9931dbe786b4f0c21e5bdeb22d4de8f87d8a4a3102a9d4f70"
+            },
+            {
+              "bytes": 420278,
+              "filename": "branded-portal-grocery-2026-08-18-page-046.json",
+              "sha256": "93bbe575ebdce88b4b009866f4be21afdcb1c365dac8aefc2df13db69ad50ab6"
+            },
+            {
+              "bytes": 452331,
+              "filename": "branded-portal-grocery-2026-08-18-page-047.json",
+              "sha256": "6a5261a4a8840cdf9660c35d3a0adebf14316d35a8b1474e3e41d97ee36b8ade"
+            },
+            {
+              "bytes": 484747,
+              "filename": "branded-portal-grocery-2026-08-18-page-048.json",
+              "sha256": "50b246c62c6d9f8488ffc07bf07ead59613032a0590bcc914f8a82656ecf46df"
+            },
+            {
+              "bytes": 499492,
+              "filename": "branded-portal-grocery-2026-08-18-page-049.json",
+              "sha256": "40809145fd7b9071bd1e237954796d2e0212bbaccaf44a20ede9dabfcf4b7c38"
+            },
+            {
+              "bytes": 422684,
+              "filename": "branded-portal-grocery-2026-08-18-page-050.json",
+              "sha256": "ed68eeed286e939d49c69a687f7713a3d281b35f3e42cb215f4229cdb7b99e0a"
+            },
+            {
+              "bytes": 422260,
+              "filename": "branded-portal-grocery-2026-08-18-page-051.json",
+              "sha256": "a1fbebf205662a3d289d3fb927bdde85e904e11981440e2326a0294db294d6fb"
+            },
+            {
+              "bytes": 437968,
+              "filename": "branded-portal-grocery-2026-08-18-page-052.json",
+              "sha256": "34dcb060a2c09fb91426ee06e3444cfb07e59214a56c713ea1a1bb8a55e8c55f"
+            },
+            {
+              "bytes": 414847,
+              "filename": "branded-portal-grocery-2026-08-18-page-053.json",
+              "sha256": "92152b89e55caf5ec49d1c05d2495fd9e3a290b76bfc95b43337054f2979cd83"
+            },
+            {
+              "bytes": 433707,
+              "filename": "branded-portal-grocery-2026-08-18-page-054.json",
+              "sha256": "1c183880410c2ccc423f87ed88630e60e1f24c2dd68a80b7439a74d7ed3a745b"
+            },
+            {
+              "bytes": 388235,
+              "filename": "branded-portal-grocery-2026-08-18-page-055.json",
+              "sha256": "655a3ecc2d242335916961cfe30d2010bd0414feda49c76ba0f12e0ab1f97375"
+            },
+            {
+              "bytes": 411076,
+              "filename": "branded-portal-grocery-2026-08-18-page-056.json",
+              "sha256": "6beb64b60b9dde5f5440c80aba793ad554416a4478d210d4c3c61186505b1efb"
+            },
+            {
+              "bytes": 420640,
+              "filename": "branded-portal-grocery-2026-08-18-page-057.json",
+              "sha256": "ca8992ff2a9e954b338d0c47bc4d62f50536a44a9af1ceedd330bca175f3c125"
+            },
+            {
+              "bytes": 391723,
+              "filename": "branded-portal-grocery-2026-08-18-page-058.json",
+              "sha256": "c59d2167ed86a03ec28e4e13d77ebd16ade06ee56e1f73d353d293ced9fe6e5c"
+            },
+            {
+              "bytes": 383137,
+              "filename": "branded-portal-grocery-2026-08-18-page-059.json",
+              "sha256": "90c105bbb1131f60c413c091a8d8f145d9100839fdcc72ff8fa70fd625b03db9"
+            },
+            {
+              "bytes": 382352,
+              "filename": "branded-portal-grocery-2026-08-18-page-060.json",
+              "sha256": "12ebafeca3901bf3505b8376e308679ead4f2e03704b43bfb7901222783360f6"
+            },
+            {
+              "bytes": 469166,
+              "filename": "branded-portal-grocery-2026-08-18-page-061.json",
+              "sha256": "261c6fbe22e28670056fac59ff870a3762192c067ccb65c3e47f8838d9185d13"
+            },
+            {
+              "bytes": 423953,
+              "filename": "branded-portal-grocery-2026-08-18-page-062.json",
+              "sha256": "c107d148ce89e3bf35ac8116749b38e8de4a11a1a7c693637abeb5bc4e851df5"
+            },
+            {
+              "bytes": 443888,
+              "filename": "branded-portal-grocery-2026-08-18-page-063.json",
+              "sha256": "e06e4c01b5b296771c2350123344a709bcd0124adf26db45075595a5c0188dad"
+            },
+            {
+              "bytes": 448035,
+              "filename": "branded-portal-grocery-2026-08-18-page-064.json",
+              "sha256": "444acd7b2fcce77e96a23e4ee8b002f95bcb1e5c898d9d2e475c3f6811b90eaf"
+            },
+            {
+              "bytes": 502123,
+              "filename": "branded-portal-grocery-2026-08-18-page-065.json",
+              "sha256": "9a054720a7320fce37b4105dae997fd9a942a6e997b9af13eef2480aa3d41623"
+            },
+            {
+              "bytes": 449783,
+              "filename": "branded-portal-grocery-2026-08-18-page-066.json",
+              "sha256": "e9a0ff73a4cfddd0c7fa355f53f84c0c2e0f624f593dd47b1591f6aab73e8135"
+            },
+            {
+              "bytes": 429101,
+              "filename": "branded-portal-grocery-2026-08-18-page-067.json",
+              "sha256": "03b24c2d34d1d440e509515f6de414695c4b4e621314d0380609eec49bd294a0"
+            },
+            {
+              "bytes": 433819,
+              "filename": "branded-portal-grocery-2026-08-18-page-068.json",
+              "sha256": "0ed9fa752bd5a2b7a4342474ff1276ece782e6435ef55a956ab701177cd6b226"
+            },
+            {
+              "bytes": 416245,
+              "filename": "branded-portal-grocery-2026-08-18-page-069.json",
+              "sha256": "9c2da3ca9d6c87510f727a4913601355428c71d4d3fe84004167805234042857"
+            },
+            {
+              "bytes": 421467,
+              "filename": "branded-portal-grocery-2026-08-18-page-070.json",
+              "sha256": "c69efac9ae4983040c88a2389337cc5127db4134176a972e22ab2ef0d62c521b"
+            },
+            {
+              "bytes": 467723,
+              "filename": "branded-portal-grocery-2026-08-18-page-071.json",
+              "sha256": "c3ccab43440756b56ac0ea165b55384b74324e20049ea624ed58c534c54b1670"
+            },
+            {
+              "bytes": 469227,
+              "filename": "branded-portal-grocery-2026-08-18-page-072.json",
+              "sha256": "c86e31019fe6eccad5c688ba14c13898af39062b7d4282f2ea68f672e1a23703"
+            },
+            {
+              "bytes": 440953,
+              "filename": "branded-portal-grocery-2026-08-18-page-073.json",
+              "sha256": "3fc86d0824295ce4d6387cf62e7ba37ca4b25cdb2f840251a11ba3f07f20e9c9"
+            },
+            {
+              "bytes": 416868,
+              "filename": "branded-portal-grocery-2026-08-18-page-074.json",
+              "sha256": "95941f18ec1d08fdfb93e571a43f3979fc3496be205ae1eafc6242769770dfd6"
+            },
+            {
+              "bytes": 427200,
+              "filename": "branded-portal-grocery-2026-08-18-page-075.json",
+              "sha256": "f7bb876ad07b14db90511853590393fe7923188ffa8410ba413398cd4c578863"
+            },
+            {
+              "bytes": 435504,
+              "filename": "branded-portal-grocery-2026-08-18-page-076.json",
+              "sha256": "1a7ba0b8284ab7df79507176ba978ddb45af6d2b79e6c0a3537b0b4752a19228"
+            },
+            {
+              "bytes": 448748,
+              "filename": "branded-portal-grocery-2026-08-18-page-077.json",
+              "sha256": "93ff957bc42182731432db7c5729e93002e6f201d376b85abf24b90910623a5e"
+            },
+            {
+              "bytes": 896359,
+              "filename": "branded-portal-grocery-2026-08-18-page-078.json",
+              "sha256": "53d4f8770cac53eabdc42848bb45d4cf1efb906d3e31a0c36998e95940647cfb"
+            },
+            {
+              "bytes": 841295,
+              "filename": "branded-portal-grocery-2026-08-18-page-079.json",
+              "sha256": "1c34ac0050b7b155f83c80ac1cf12cd01cfc606cc9d47a5a8e93e6651a75c929"
+            },
+            {
+              "bytes": 504115,
+              "filename": "branded-portal-grocery-2026-08-18-page-080.json",
+              "sha256": "dbf33413f99eb7d9fd9edeb207517009ddc4c4810b4d5fd1c20e50c2931b3791"
+            },
+            {
+              "bytes": 432044,
+              "filename": "branded-portal-grocery-2026-08-18-page-081.json",
+              "sha256": "0eb542eccfe112701c5ee4bdf945c8ca46508b8d93672234834543913113ce91"
+            },
+            {
+              "bytes": 456357,
+              "filename": "branded-portal-grocery-2026-08-18-page-082.json",
+              "sha256": "33eecfa9813a91971409d892e52fd4b1dda5c852d126539e47d2826b15da3c06"
+            }
+          ],
+          "discontinuation_evidence": "Website-search rows may omit discontinuedDate; missing evidence is classified UNKNOWN, never active.",
+          "method": "POST application/json",
+          "page_range": [
+            1,
+            82
+          ],
+          "page_size": 50,
+          "purpose": "independent frozen official GROCERY website-search result set used to broaden candidate coverage; it is not treated as a continuation of API pagination and the endpoint is not represented as a stable public API",
+          "query": {
+            "includeDataTypes.Branded": true,
+            "includeTradeChannels.GROCERY": true,
+            "sortDirection": "desc",
+            "sortField": "publishedDate"
+          },
+          "release": "2026-08-18",
+          "role": "v3-expansion-independent-website-search-candidate-source",
+          "source": "official FoodData Central website search snapshot"
+        },
+        "v3_supermarket_expansion": {
+          "acquisition_url": "https://fdc.nal.usda.gov/fdc-datasets/FoodData_Central_branded_food_json_2026-04-30.zip",
+          "artifacts": [
+            {
+              "bytes": 204270542,
+              "filename": "branded-2026-04-30.zip",
+              "sha256": "57b0f122e61cf2840f03c11e9520275d0d2018dc036e16273fcd3cd370db2256"
+            }
+          ],
+          "purpose": "select 3,000 additional rows with row-level GROCERY verification",
+          "raw_filter": "tradeChannels contains GROCERY",
+          "release": "2026-04-30",
+          "role": "v3-expansion-bulk-candidate-source",
+          "source": "official FoodData Central Branded bulk JSON ZIP"
+        }
+      }
+    }
+  ]
+}

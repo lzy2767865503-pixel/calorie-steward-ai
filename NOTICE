@@ -1,0 +1,19 @@
+Diet Steward / 饮食管家
+Copyright 2026 LAI ZEYU (来泽宇)
+
+This product was conceived, product-led and developed by LAI ZEYU (来泽宇)
+with an AI-assisted vibe-coding workflow. LAI ZEYU is responsible for the
+product definition, architecture decisions, acceptance criteria and releases.
+
+Redistributions of this work must preserve applicable copyright and attribution
+notices in accordance with Section 4 of the Apache License, Version 2.0.
+
+The historical food-catalogue experiment includes selected records derived from
+USDA FoodData Central. USDA FoodData Central data are made available under the
+Creative Commons CC0 1.0 Universal public-domain dedication. The catalogue is a
+nutrition reference and does not prove the contents or portion of a photograph.
+
+Third-party open-source packages remain governed by their own licenses and
+copyright notices. AI-provider services, model weights and API credentials are
+not distributed as part of this work.
+

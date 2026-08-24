@@ -1,0 +1,68 @@
+{
+  "expo": {
+    "name": "Diet Steward",
+    "slug": "diet-steward",
+    "scheme": "dietsteward",
+    "version": "1.2.0",
+    "icon": "../android-app/branding/diet-steward-app-icon-v1.2.png",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "locales": {
+      "en": "./locales/en.json",
+      "zh": "./locales/zh.json"
+    },
+    "plugins": [
+      "./plugins/with-photo-only-ios-info",
+      "./plugins/with-private-android-manifest",
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Allow Diet Steward to photograph meals and send them to your configured AI service for nutrition analysis.",
+          "recordAudioAndroid": false,
+          "barcodeScannerEnabled": false
+        }
+      ],
+      [
+        "expo-secure-store",
+        {
+          "configureAndroidBackup": true,
+          "faceIDPermission": "Allow Diet Steward to use Face ID to protect API credentials."
+        }
+      ],
+      "expo-sharing"
+    ],
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.laisystems.dietsteward",
+      "buildNumber": "4",
+      "config": {
+        "usesNonExemptEncryption": false
+      }
+    },
+    "android": {
+      "package": "com.laisystems.dietsteward",
+      "versionCode": 4,
+      "predictiveBackGestureEnabled": true,
+      "adaptiveIcon": {
+        "foregroundImage": "../android-app/branding/diet-steward-app-icon-v1.2.png",
+        "backgroundColor": "#062E6F"
+      },
+      "blockedPermissions": [
+        "android.permission.READ_EXTERNAL_STORAGE",
+        "android.permission.WRITE_EXTERNAL_STORAGE",
+        "android.permission.SYSTEM_ALERT_WINDOW",
+        "android.permission.VIBRATE"
+      ],
+      "permissions": [
+        "CAMERA"
+      ]
+    },
+    "extra": {
+      "nutritionStandardVersion": "WHO-FAO-adult-2026-v1",
+      "dietScoreVersion": "DietScore-v1.1",
+      "enterpriseClientPolicy": "diet-enterprise-client.v1",
+      "dataTransferConsent": "diet-data-transfer.v2",
+      "officialDeveloper": "LAI ZEYU 来泽宇"
+    }
+  }
+}

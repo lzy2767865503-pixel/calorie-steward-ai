@@ -1,0 +1,3 @@
+"CFBundleDisplayName" = "饮食管家";
+"NSCameraUsageDescription" = "允许饮食管家拍摄餐食照片，并发送给您配置的 AI 服务进行营养分析。";
+"NSFaceIDUsageDescription" = "允许饮食管家使用 Face ID 保护 API 凭据。";

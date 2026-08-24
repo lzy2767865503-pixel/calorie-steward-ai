@@ -1,0 +1,104 @@
+# Operating systems and editors
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+*.tmp
+.idea/
+.vscode/
+**/xcuserdata/
+
+# Credentials and local configuration
+.env
+.env.*
+!.env.example
+!**/.env.example
+**/.env
+**/.env.*
+!**/.env.example
+**/local.properties
+**/.xcode.env.local
+*.jks
+*.keystore
+*.p8
+*.p12
+*.pfx
+*.pem
+*.key
+*.mobileprovision
+google-services.json
+GoogleService-Info.plist
+credentials.json
+service-account*.json
+id_rsa
+id_ed25519
+.netrc
+.npmrc
+.pypirc
+
+# JavaScript / Expo
+**/node_modules/
+**/.expo/
+**/.expo-shared/
+**/dist/
+**/coverage/
+*.jsbundle
+
+# Android / Gradle
+**/.gradle/
+**/.kotlin/
+**/.cxx/
+**/build/
+*.aab
+*.apk
+*.apks
+
+# Apple build products
+**/Pods/
+**/DerivedData/
+*.ipa
+*.xcarchive
+*.dSYM/
+
+# Python
+**/.venv/
+**/venv/
+**/__pycache__/
+**/.pytest_cache/
+**/.mypy_cache/
+**/.ruff_cache/
+*.py[cod]
+
+# Downloaded source caches and local tool output
+**/.cache/
+*.log
+*.pid
+
+# Raw device evidence can contain machine paths or device identifiers.
+# Publish a reviewed summary instead of committing unreviewed runtime output.
+release/evidence/
+test-harness/results/*.json
+test-harness/images/
+
+# Local/internal release metadata. APKs belong in GitHub Release assets, not
+# Git history. Public release notes are explicitly retained below.
+release/*-internal.json
+release/*.json
+release/*-third-party-licenses.txt
+release/*-android-runtime-dependencies.txt
+release/*-android-third-party-licenses.txt
+release/*.apk.sha256
+release/*BUILD_REPORT*.md
+release/*SHA256SUMS*
+release/SHA256SUMS
+!release/GITHUB_RELEASE_v1.2.0.md
+
+# The browser design prototype depends on device-frame and keyboard assets whose
+# public redistribution provenance has not yet been verified. It is intentionally
+# outside the first public source release; mobile-app/ is the shipping product.
+design-prototype/
+
+# Superseded prototype icon with unverified provenance. The public release uses
+# android-app/branding/diet-steward-app-icon-v1.2.png instead.
+android-app/branding/clinical-clarity-app-icon.png
+mobile-app/ios/app/Images.xcassets/AppIcon.appiconset/App-Icon-1024x1024@1x.png

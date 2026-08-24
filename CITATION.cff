@@ -1,0 +1,25 @@
+cff-version: 1.2.0
+message: >-
+  If you use Diet Steward in research, teaching or a derivative product, please
+  cite the software and preserve the attribution required by its license.
+title: "Diet Steward / 饮食管家"
+type: software
+version: 1.2.0
+date-released: 2026-08-24
+license: Apache-2.0
+repository-code: "https://github.com/lzy2767865503-pixel/diet-steward-ai"
+authors:
+  - family-names: Lai
+    given-names: Zeyu
+abstract: >-
+  A camera-first, uncertainty-aware AI nutrition journal with local longitudinal
+  records, deterministic diet scoring, privacy controls and managed-gateway
+  foundations. Created and product-led by LAI ZEYU (来泽宇) using an
+  AI-assisted vibe-coding workflow.
+keywords:
+  - nutrition
+  - food image analysis
+  - artificial intelligence
+  - React Native
+  - privacy by design
+  - digital health
