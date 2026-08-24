@@ -1,6 +1,6 @@
-# Calorie Steward / 卡路里管家 v1.2.1 企业托管部署说明
+# Calorie Steward / 卡路里管家 v1.2.2 企业托管部署说明
 
-版本：1.2.1 (5)（客户端策略 `diet-enterprise-client.v1`）  
+版本：1.2.2 (6)（客户端策略 `diet-enterprise-client.v1`）  
 开发者：LAI ZEYU (来泽宇)
 
 ## 定位
@@ -52,7 +52,15 @@ release 构建不再回退到公开 debug keystore。构建环境必须提供：
 - `DIET_RELEASE_KEY_ALIAS`
 - `DIET_RELEASE_KEY_PASSWORD`
 
-缺失任何一项时，release 任务会失败。签名文件和密码应保存在 CI Secret / 企业密钥库，不得提交到代码仓库。v1.2.1 与 v1.2.0 使用同一证书，已在 Android API 35 验证 `adb install -r` 覆盖升级、保持 `firstInstallTime` 并冷启动进入新品牌界面；本次未另行创建并逐项核对真实餐食、语言与 SecureStore 数据的迁移。由于 1.0.1 内测包使用不同签名，安装 v1.2.1 前需先导出饮食记录再卸载旧包；卸载会删除旧包的本机数据。当前 v1.2.1 尚无导入界面，导出 JSON 仅是备份，不会自动恢复到新版。
+缺失任何一项时，release 任务会失败。签名文件和密码应保存在 CI Secret / 企业密钥库，不得提交到代码仓库。v1.2.2 与官方 v1.2.1 使用同一证书，已在 Android API 35 验证 `adb install -r` 覆盖升级、保持 `firstInstallTime` 并冷启动进入 Calorie Steward 界面；本次未逐项核对真实餐食、语言与 SecureStore 数据的迁移。由于 1.0.1 内测包使用不同签名，安装官方版本前需先导出饮食记录再卸载旧包；卸载会删除旧包的本机数据。当前版本尚无导入界面，导出 JSON 仅是备份，不会自动恢复到新版。
+
+## Android 持续更新通道
+
+- v1.2.2 是首个内置版本检查器的 Build；v1.2.1 及更早版本必须手动同签名覆盖安装 v1.2.2 一次。
+- App 启动完成及每次返回前台时读取 Kawan Campus 的公开 JSON 清单；请求不携带照片、饮食记录、个人资料、Provider 配置或 API Key。
+- 清单只允许指向官方 GitHub Release 的不可变版本化 APK 地址，后续版本必须保持 applicationId 与签名证书、递增 `versionCode`，并先发布 APK 和 `.sha256`，再推进清单。
+- 可选更新可延后 6 小时；一旦成功读取并持久化必须更新门槛，重启、断网、旧磁盘记录和刷新失败都不能解除全屏门禁。
+- 首次成功读取有效清单之前，离线客户端无法得知服务器新增门槛；安装仍由 Android 和用户完成，本项目不实施静默下载或静默安装。
 
 ## 发布门禁
 
@@ -61,6 +69,6 @@ release 构建不再回退到公开 debug keystore。构建环境必须提供：
 - APK 通过 `apksigner verify --verbose --print-certs` 与 `zipalign -c`。
 - 证书不是 Android Debug；权限只包含发布清单允许项。
 - 目标 Android 模拟器的安装与冷启动通过；拍照取消、照片保留策略、导出清理和删除顺序由自动化测试覆盖。企业发布前仍须在受管物理设备上完成相机、系统分享、Keystore、生物识别和企业网关端到端验收。
-- 记录版本、SHA-256、构建时间、applicationId、versionCode 和测试证据，并将可公开摘要写入 `docs/RELEASE_EVIDENCE_v1.2.1.md`。
+- 记录版本、SHA-256、构建时间、applicationId、versionCode 和测试证据，并将可公开摘要写入 `docs/RELEASE_EVIDENCE_v1.2.2.md`。
 
 客户端的提交三态核对、重启清理和并发顺序已由自动化测试覆盖；本次没有执行真实 App 进程 kill、系统崩溃或断电故障注入。SQLite 使用 `WAL + synchronous=NORMAL`，因此不宣称这些场景“绝对零残留”。

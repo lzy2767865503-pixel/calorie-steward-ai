@@ -52,7 +52,7 @@ flowchart LR
 
 `mobile-app/` 是当前产品入口；`android-app/`、`backend/` 和 `data-pipeline/` 是早期条码 / 食品库的可审计实验，不是当前 App 的默认运行路径。首个公开版不包含内部 `design-prototype/`，因为其设备框与键盘素材的公开再分发来源尚未完成确认。
 
-公开范围包含构建和检查当前客户端所需的源码、测试、CI 和文档。本次可安装、已签名并已完成运行验证的发布产物只有 Android APK；iOS 仅保留跨平台源码与配置，未构建、签名或发布。仅排除未确认公开再分发权的原型视觉素材、私密回归输入/原始结果、本机凭据与签名私钥；APK 作为 GitHub Release 产物发布，不放入 Git 历史。
+公开范围包含构建和检查当前客户端所需的源码、测试、CI 和文档。本次可安装、已签名并已完成运行验证的发布产物只有 Android APK；iOS 仅保留跨平台源码与配置，未构建、签名或发布。仅排除未确认公开再分发权的原型视觉素材、私密回归输入/原始结果、本机凭据与签名私钥；公开发布时 APK 将作为 GitHub Release 产物分发，不放入 Git 历史。
 
 ### 科学、安全与验证边界
 
@@ -60,7 +60,9 @@ flowchart LR
 
 项目包含 TypeScript 类型检查、领域规则测试、API 协议和失败边界测试、Android 构建与安装检查，以及一次历史本地三图功能回归：两张餐食图片和一张空盘通过本机鉴权的 Codex 视觉代理运行。该运行使用真实推理而非 mock，但不是公开 CI、最终 APK 的付费 Provider 验收或企业网关验收。出于版权与个人数据谨慎，回归图片和原始结果不进入公开 Git 历史；`test-harness/` 保留了可使用自有/获授权图片和自行配置的视觉服务重跑的代码。这些证据支持“已验证产品链路与拒绝边界”，**不代表已完成大规模独立准确率基准、线上付费 Provider 验收、企业网关生产验收或医疗器械认证**。CI 中的 `npm audit --audit-level=high` 仅审计 `mobile-app/package-lock.json` 对应的 npm 依赖树，不是对 Gradle、Python 依赖或供应链风险的全面保证。
 
-v1.2.1 最终发布门禁通过 **170/170** 项自动化测试（移动端 148、历史后端 15、食品数据管道 7），Android Lint 与 Release 构建通过，最终签名 APK 已在 Android API 24（中文）与 API 35（英文）完成安装、冷启动和崩溃日志检查；API 35 还验证了从同签名 v1.2.0 覆盖升级到 v1.2.1。APK SHA-256：`f574f09621be410708a3bd035a3dcaaa5918be1091969617d3a57e37c5dceb0d`。
+v1.2.2 最终发布门禁通过 **185/185** 项自动化测试（移动端 163、历史后端 15、食品数据管道 7），Android Lint 与 Release 构建通过。最终签名 APK 已在 Android API 24 完成新装，在 API 35 从同签名 v1.2.1 覆盖升级并保持 `firstInstallTime`，两次冷启动日志均未发现 App FATAL/ANR。APK SHA-256：`150d159681e451ada88bf46311dde851e2d486cb2a46201f46437be34da8c76a`。
+
+v1.2.2 是首个内置 Android 持续版本检查器的版本：启动完成和每次回到前台时读取 Kawan Campus 的无凭据公开清单，只接受官方 GitHub Release 的不可变版本化 APK 地址。可选更新可延后 6 小时；一旦必须更新门槛成功持久化，全屏门禁会在重启、断网、过期缓存和刷新失败后继续生效，写入失败时则在当前进程内保持阻断并等待重试。v1.2.1 及更早安装包没有检查器，必须手动覆盖安装 v1.2.2 一次，之后才能持续收到后续版本提醒。该机制是轮询提醒和用户确认安装，不是后台静默推送或静默安装。客户端清单地址已固定，候选证据时的公网 JSON 部署仍是独立发布门禁。
 
 ### 下载与本地运行
 
@@ -120,11 +122,11 @@ Manual food logging asks people to search for dishes, estimate grams and fill in
 
 ### Architecture and AI design
 
-The diagram in the Chinese section shows the shared client flow. The important design boundary is that a generative model proposes structured evidence; deterministic application code validates, aggregates and scores it. This makes model failures visible and testable instead of allowing plausible prose to become health data automatically. The installable, signed and runtime-verified v1.2.1 artifact is Android-only; iOS is a source/configuration target and was not built, signed or released.
+The diagram in the Chinese section shows the shared client flow. The important design boundary is that a generative model proposes structured evidence; deterministic application code validates, aggregates and scores it. This makes model failures visible and testable instead of allowing plausible prose to become health data automatically. The installable, signed and runtime-verified v1.2.2 artifact is Android-only; iOS is a source/configuration target and was not built, signed or released.
 
 `mobile-app/` is the current product. `android-app/`, `backend/` and `data-pipeline/` preserve earlier auditable barcode/catalogue experiments and are not the default runtime path. The first public release excludes the internal `design-prototype/` because redistribution provenance for its device-frame and keyboard assets has not yet been verified.
 
-The public scope includes the source, tests, CI and documentation needed to build and inspect the current client. The only installable, signed and runtime-verified release artifact in v1.2.1 is the Android APK; iOS remains source/configuration only and was not built, signed or released. Only prototype visual material without confirmed redistribution rights, private regression inputs/raw results, local credentials and signing private keys are excluded. The APK is published as a GitHub Release asset rather than committed to Git history.
+The public scope includes the source, tests, CI and documentation needed to build and inspect the current client. The only installable, signed and runtime-verified release artifact in v1.2.2 is the Android APK; iOS remains source/configuration only and was not built, signed or released. Only prototype visual material without confirmed redistribution rights, private regression inputs/raw results, local credentials and signing private keys are excluded. On publication, the APK is distributed as a GitHub Release asset rather than committed to Git history.
 
 ### Scientific and security boundary
 
@@ -132,7 +134,9 @@ A single photo cannot prove exact edible weight, hidden oil, sauces or brand for
 
 The repository includes type checks, domain-rule tests, API-contract and failure-boundary tests, Android build/install checks, and a harness for vision regression. The recorded three-image result was a historical local functional run: two meal images plus an empty-plate control were processed through an authenticated local Codex vision proxy using real inference rather than a mock. It was not public CI, final-APK paid-provider acceptance or enterprise-gateway acceptance. To avoid publishing material without verified redistribution rights or personal-data clearance, the images and raw results are excluded from public Git history. Contributors can rerun the harness with images they own or are licensed to use and a vision service they configure; that does not independently reproduce the private historical inputs. The evidence supports that the implemented product path and refusal behavior ran; it **does not establish a large independent accuracy benchmark, production paid-provider/gateway acceptance, clinical validation or regulatory approval**. CI's `npm audit --audit-level=high` covers the npm dependency tree locked by `mobile-app/package-lock.json`; it is not an audit of Gradle, Python or every supply-chain risk.
 
-The final v1.2.1 gate passed **170/170** automated tests (148 mobile, 15 historical-backend and 7 food-pipeline tests), Android Lint and the signed release build. The final APK was installed and cold-launched on Android API 24 (Chinese) and API 35 (English) with no app-fatal errors in the captured launch logs; API 35 also passed an in-place upgrade from the same-signed v1.2.0 package. APK SHA-256: `f574f09621be410708a3bd035a3dcaaa5918be1091969617d3a57e37c5dceb0d`.
+The final v1.2.2 gate passed **185/185** automated tests (163 mobile, 15 historical-backend and 7 food-pipeline tests), Android Lint and the signed release build. The final APK passed a fresh install on Android API 24 and an in-place upgrade from same-signed v1.2.1 on API 35 while retaining `firstInstallTime`; neither cleared cold-launch log contained an app FATAL/ANR. APK SHA-256: `150d159681e451ada88bf46311dde851e2d486cb2a46201f46437be34da8c76a`.
+
+v1.2.2 is the first build with the long-lived Android release checker. It reads a credential-free Kawan Campus manifest after startup and whenever the app returns to the foreground, and accepts only immutable versioned APK URLs in the official GitHub Releases repository. Optional updates can be snoozed for six hours. Once a required support floor is successfully persisted, restart, offline state, stale disk data and refresh failure cannot dismiss the full-screen gate; a persistence failure remains blocking in the current process until retry succeeds. v1.2.1 and earlier do not contain the checker and therefore need one manual same-signed overlay install of v1.2.2 before they can discover later releases. This is polling plus a user-controlled Android install, not silent background push or installation. The client URL is fixed, while public JSON deployment remained a separate release gate at the candidate-evidence time.
 
 ### Download and run
 

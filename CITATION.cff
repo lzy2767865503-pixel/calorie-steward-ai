@@ -4,7 +4,7 @@ message: >-
   cite the software and preserve the attribution required by its license.
 title: "Calorie Steward / 卡路里管家"
 type: software
-version: 1.2.1
+version: 1.2.2
 date-released: 2026-08-25
 license: Apache-2.0
 repository-code: "https://github.com/lzy2767865503-pixel/calorie-steward-ai"

@@ -314,7 +314,7 @@ export function SettingsScreen({
 
           <Card>
             <Text style={styles.cardEyebrow}>{t("关于", "ABOUT")}</Text>
-            <Text style={styles.cardTitle}>{t("卡路里管家 v1.2.1", "Calorie Steward v1.2.1")}</Text>
+            <Text style={styles.cardTitle}>{t("卡路里管家 v1.2.2", "Calorie Steward v1.2.2")}</Text>
             <Text style={styles.developerAttribution}>{officialAttribution(language)}</Text>
             <Text style={styles.cardBody}>{t("这是官方版本的作者署名。官方构建门禁会在署名意外缺失时失败；由于项目开源，第三方 fork 仍可依法修改源代码和界面。", "This is the official build attribution. The official build gate fails if it is accidentally removed. Because the project is open source, third-party forks can still lawfully modify the source and interface.")}</Text>
           </Card>

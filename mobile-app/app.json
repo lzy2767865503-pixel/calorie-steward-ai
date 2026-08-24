@@ -3,7 +3,7 @@
     "name": "Calorie Steward",
     "slug": "calorie-steward",
     "scheme": "dietsteward",
-    "version": "1.2.1",
+    "version": "1.2.2",
     "icon": "../android-app/branding/calorie-steward-app-icon-v1.2.1.png",
     "orientation": "portrait",
     "userInterfaceStyle": "light",
@@ -34,14 +34,14 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.laisystems.dietsteward",
-      "buildNumber": "5",
+      "buildNumber": "6",
       "config": {
         "usesNonExemptEncryption": false
       }
     },
     "android": {
       "package": "com.laisystems.dietsteward",
-      "versionCode": 5,
+      "versionCode": 6,
       "predictiveBackGestureEnabled": true,
       "adaptiveIcon": {
         "foregroundImage": "../android-app/branding/calorie-steward-app-icon-v1.2.1.png",
