@@ -44,11 +44,11 @@ const appConfig = JSON.parse(read("app.json")) as {
 };
 assert.equal(appConfig.expo?.name, "Calorie Steward");
 assert.equal(appConfig.expo?.slug, "calorie-steward");
-assert.equal(appConfig.expo?.version, "1.2.1");
+assert.equal(appConfig.expo?.version, "1.2.2");
 assert.equal(appConfig.expo?.android?.package, "com.laisystems.dietsteward");
-assert.equal(appConfig.expo?.android?.versionCode, 5);
+assert.equal(appConfig.expo?.android?.versionCode, 6);
 assert.equal(appConfig.expo?.ios?.bundleIdentifier, "com.laisystems.dietsteward");
-assert.equal(appConfig.expo?.ios?.buildNumber, "5");
+assert.equal(appConfig.expo?.ios?.buildNumber, "6");
 assert.equal(appConfig.expo?.extra?.officialDeveloper, "LAI ZEYU 来泽宇");
 const cameraPlugin = appConfig.expo?.plugins?.find(
   (plugin): plugin is [string, Record<string, unknown>] =>
@@ -82,8 +82,8 @@ assert.match(
   /name="official_developer">由 LAI ZEYU 来泽宇 开发</,
 );
 const androidBuildGradle = read("android/app/build.gradle");
-assert.match(androidBuildGradle, /versionCode 5/);
-assert.match(androidBuildGradle, /versionName ["']1\.2\.1["']/);
+assert.match(androidBuildGradle, /versionCode 6/);
+assert.match(androidBuildGradle, /versionName ["']1\.2\.2["']/);
 assert.match(androidBuildGradle, /diet-steward-managed-android-configuration/);
 assert.match(androidBuildGradle, /tasks\.register\('verifyOfficialAttribution', Exec\)/);
 assert.match(androidBuildGradle, /tasks\.register\('verifyBilingualUi', Exec\)/);
@@ -104,8 +104,8 @@ assert.doesNotMatch(
 assert.match(read("ios/app/en.lproj/InfoPlist.strings"), /Developed|Calorie Steward/);
 assert.match(read("ios/app/zh-Hans.lproj/InfoPlist.strings"), /卡路里管家/);
 assert.match(read("ios/app/Info.plist"), /<key>LAIOfficialDeveloper<\/key>\s*<string>LAI ZEYU 来泽宇<\/string>/);
-assert.match(read("ios/app/Info.plist"), /<key>CFBundleShortVersionString<\/key>\s*<string>1\.2\.1<\/string>/);
-assert.match(read("ios/app/Info.plist"), /<key>CFBundleVersion<\/key>\s*<string>5<\/string>/);
-assert.match(read("src/screens/SettingsScreen.tsx"), /卡路里管家 v1\.2\.1|Calorie Steward v1\.2\.1/);
+assert.match(read("ios/app/Info.plist"), /<key>CFBundleShortVersionString<\/key>\s*<string>1\.2\.2<\/string>/);
+assert.match(read("ios/app/Info.plist"), /<key>CFBundleVersion<\/key>\s*<string>6<\/string>/);
+assert.match(read("src/screens/SettingsScreen.tsx"), /卡路里管家 v1\.2\.2|Calorie Steward v1\.2\.2/);
 
 process.stdout.write("Official attribution gate passed: LAI ZEYU 来泽宇\n");

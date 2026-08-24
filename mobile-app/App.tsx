@@ -1,3 +1,4 @@
+import * as Application from "expo-application";
 import { CryptoDigestAlgorithm, digestStringAsync, randomUUID } from "expo-crypto";
 import * as Sharing from "expo-sharing";
 import { StatusBar } from "expo-status-bar";
@@ -5,6 +6,8 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
+  AppState,
+  Linking,
   Platform,
   StyleSheet,
   Text,
@@ -64,6 +67,19 @@ import {
   PENDING_PRIVATE_FILE_CLEANUP_SETTING_KEY,
   createPendingFileCleanupManager,
 } from "./src/app/pendingFileCleanup";
+import {
+  ANDROID_REQUIRED_UPDATE_GATE_SETTING_KEY,
+  ANDROID_UPDATE_SNOOZE_SETTING_KEY,
+  checkForAndroidUpdate,
+  createAndroidUpdateSnooze,
+  higherRequiredUpdate,
+  isAndroidUpdateSnoozed,
+  openOfficialAndroidDownload,
+  reconcileRequiredUpdateGate,
+  validateAndroidRuntimeApplicationInfo,
+  type AndroidRuntimeApplicationInfo,
+  type AndroidUpdate,
+} from "./src/app/nativeUpdate";
 import {
   createExportFileUri,
   deleteLocalPhoto,
@@ -144,6 +160,10 @@ import {
   type StoredReport,
 } from "./src/storage";
 import type { BottomTab } from "./src/ui/components";
+import {
+  NativeUpdateOverlay,
+  type AndroidUpdateGateFailure,
+} from "./src/ui/NativeUpdateOverlay";
 import { colors, spacing, textStyles } from "./src/ui/theme";
 import { officialAttribution } from "./src/brand/officialAttribution";
 import {
@@ -565,6 +585,18 @@ export default function App() {
   const analysisRun = useRef(0);
   const reportRun = useRef(0);
   const reportLoadRun = useRef(0);
+  const [androidUpdateGateReady, setAndroidUpdateGateReady] = useState(Platform.OS !== "android");
+  const [requiredAndroidUpdate, setRequiredAndroidUpdate] = useState<AndroidUpdate | null>(null);
+  const [optionalAndroidUpdate, setOptionalAndroidUpdate] = useState<AndroidUpdate | null>(null);
+  const [androidUpdateGateFailure, setAndroidUpdateGateFailure] = useState<AndroidUpdateGateFailure | null>(null);
+  const [checkingAndroidUpdate, setCheckingAndroidUpdate] = useState(false);
+  const [androidUpdateActionError, setAndroidUpdateActionError] = useState<string | null>(null);
+  const androidRuntimeInfo = useRef<AndroidRuntimeApplicationInfo | null>(null);
+  const requiredAndroidUpdateRef = useRef<AndroidUpdate | null>(null);
+  const androidAppState = useRef(AppState.currentState);
+  const retryAndroidUpdateGate = useRef<() => void>(() => undefined);
+  const updateLanguage = useRef(language);
+  updateLanguage.current = language;
 
   const invalidateReportWork = () => {
     reportRun.current += 1;
@@ -581,6 +613,189 @@ export default function App() {
   useEffect(() => {
     void bootstrap();
     // The bootstrap is intentionally one-shot; native storage is the source of truth afterwards.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    if (Platform.OS !== "android") return undefined;
+    let mounted = true;
+    let updateCheckPromise: Promise<void> | null = null;
+    let gateStorageHealthy = false;
+    androidAppState.current = AppState.currentState;
+
+    const applyRequiredUpdate = (update: AndroidUpdate | null) => {
+      requiredAndroidUpdateRef.current = update;
+      if (!mounted) return;
+      setRequiredAndroidUpdate(update);
+      if (update) setOptionalAndroidUpdate(null);
+    };
+
+    const loadPersistentGate = async (): Promise<AndroidRuntimeApplicationInfo | null> => {
+      try {
+        const runtime = validateAndroidRuntimeApplicationInfo({
+          applicationId: Application.applicationId,
+          nativeApplicationVersion: Application.nativeApplicationVersion,
+          nativeBuildVersion: Application.nativeBuildVersion,
+        });
+        androidRuntimeInfo.current = runtime;
+        const stored = await getSetting<unknown>(ANDROID_REQUIRED_UPDATE_GATE_SETTING_KEY);
+        if (!mounted) return null;
+        const reconciliation = reconcileRequiredUpdateGate(
+          stored?.value,
+          requiredAndroidUpdateRef.current,
+          runtime,
+        );
+        applyRequiredUpdate(reconciliation.effectiveUpdate);
+        if (reconciliation.mustPersist && reconciliation.gateToPersist) {
+          try {
+            await setSetting(
+              ANDROID_REQUIRED_UPDATE_GATE_SETTING_KEY,
+              reconciliation.gateToPersist,
+            );
+          } catch {
+            gateStorageHealthy = false;
+            setAndroidUpdateGateFailure("gate_storage");
+            setAndroidUpdateActionError(localizedCopy(
+              updateLanguage.current,
+              "更高的必须更新门禁仍在本次运行中生效，但本机记录写入失败。离线或重试都不会解除，请再次重试。",
+              "The higher required-update gate remains active for this run, but its on-device record could not be written. Offline retries will not clear it; try again.",
+            ));
+            setAndroidUpdateGateReady(true);
+            return runtime;
+          }
+        }
+        if (reconciliation.shouldDeletePersisted) {
+          void deleteSetting(ANDROID_REQUIRED_UPDATE_GATE_SETTING_KEY).catch(() => undefined);
+        }
+        gateStorageHealthy = true;
+        setAndroidUpdateGateFailure(null);
+        setAndroidUpdateActionError(null);
+        setAndroidUpdateGateReady(true);
+        return runtime;
+      } catch {
+        if (!mounted) return null;
+        const failure: AndroidUpdateGateFailure = androidRuntimeInfo.current
+          ? "gate_storage"
+          : "runtime_identity";
+        setAndroidUpdateGateFailure(failure);
+        gateStorageHealthy = false;
+        setAndroidUpdateGateReady(true);
+        return null;
+      }
+    };
+
+    const persistRequiredUpdate = async (
+      update: AndroidUpdate,
+      runtime: AndroidRuntimeApplicationInfo,
+    ) => {
+      const inMemoryUpdate = higherRequiredUpdate(requiredAndroidUpdateRef.current, update);
+      applyRequiredUpdate(inMemoryUpdate);
+      try {
+        const stored = await getSetting<unknown>(ANDROID_REQUIRED_UPDATE_GATE_SETTING_KEY);
+        const reconciliation = reconcileRequiredUpdateGate(stored?.value, inMemoryUpdate, runtime);
+        if (!reconciliation.effectiveUpdate || !reconciliation.gateToPersist) {
+          throw new Error("Required update gate unexpectedly cleared");
+        }
+        applyRequiredUpdate(reconciliation.effectiveUpdate);
+        if (reconciliation.mustPersist) {
+          await setSetting(
+            ANDROID_REQUIRED_UPDATE_GATE_SETTING_KEY,
+            reconciliation.gateToPersist,
+          );
+        }
+        if (mounted) {
+          gateStorageHealthy = true;
+          setAndroidUpdateGateFailure(null);
+          setAndroidUpdateActionError(null);
+        }
+      } catch {
+        if (mounted) {
+          gateStorageHealthy = false;
+          setAndroidUpdateGateFailure("gate_storage");
+          setAndroidUpdateActionError(localizedCopy(
+            updateLanguage.current,
+            "必须更新已在本次运行中生效，但本机门禁记录未能确认写入。请保持此页面并重试。",
+            "The required update is active for this run, but its on-device gate could not be confirmed. Keep this screen open and retry.",
+          ));
+        }
+      }
+    };
+
+    const presentOptionalUpdate = async (update: AndroidUpdate) => {
+      if (!mounted || androidAppState.current !== "active" || requiredAndroidUpdateRef.current) return;
+      let storedSnooze: unknown;
+      try {
+        storedSnooze = (await getSetting<unknown>(ANDROID_UPDATE_SNOOZE_SETTING_KEY))?.value;
+      } catch {
+        // Optional-update preference failures do not affect required gates.
+      }
+      if (
+        mounted &&
+        androidAppState.current === "active" &&
+        !requiredAndroidUpdateRef.current &&
+        !isAndroidUpdateSnoozed(update, storedSnooze)
+      ) {
+        setOptionalAndroidUpdate(update);
+      }
+    };
+
+    const runUpdateCheck = () => {
+      if (updateCheckPromise) return;
+      if (mounted) setCheckingAndroidUpdate(true);
+      const pending = (async () => {
+        const runtime = androidRuntimeInfo.current ?? await loadPersistentGate();
+        if (!runtime) return;
+        const update = await checkForAndroidUpdate(runtime);
+        if (!mounted || !update) return;
+        if (update.required) {
+          await persistRequiredUpdate(update, runtime);
+        } else {
+          await presentOptionalUpdate(update);
+        }
+      })()
+        .catch(() => {
+          // A previously persisted required gate stays mounted while offline.
+          // Before any manifest has ever been fetched successfully, offline
+          // startup cannot know that a server-side minimum has changed.
+          if (mounted && requiredAndroidUpdateRef.current) {
+            setAndroidUpdateActionError(localizedCopy(
+              updateLanguage.current,
+              "无法重新读取公开版本清单；已知的必须更新门禁仍然有效。",
+              "The public release manifest could not be refreshed. The known required-update gate remains active.",
+            ));
+          }
+        })
+        .finally(() => {
+          if (updateCheckPromise === pending) updateCheckPromise = null;
+          if (mounted) setCheckingAndroidUpdate(false);
+        });
+      updateCheckPromise = pending;
+    };
+
+    retryAndroidUpdateGate.current = () => {
+      if (updateCheckPromise) return;
+      if (mounted) setAndroidUpdateActionError(null);
+      void loadPersistentGate().then((runtime) => {
+        if (runtime && mounted) runUpdateCheck();
+      });
+    };
+    void loadPersistentGate().then((runtime) => {
+      if (runtime && mounted) runUpdateCheck();
+    });
+    const subscription = AppState.addEventListener("change", (nextAppState) => {
+      const returnedToForeground = nextAppState === "active" && androidAppState.current !== "active";
+      androidAppState.current = nextAppState;
+      if (returnedToForeground) {
+        if (gateStorageHealthy) runUpdateCheck();
+        else retryAndroidUpdateGate.current();
+      }
+    });
+    return () => {
+      mounted = false;
+      retryAndroidUpdateGate.current = () => undefined;
+      subscription.remove();
+    };
+    // Native application identity and the storage-backed gate are initialized once.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -1503,12 +1718,42 @@ export default function App() {
     findings: [],
   };
 
+  const androidUpdateForOverlay = requiredAndroidUpdate ?? optionalAndroidUpdate;
+  const openAndroidUpdate = (update: AndroidUpdate) => {
+    setAndroidUpdateActionError(null);
+    void openOfficialAndroidDownload(
+      update.downloadUrl,
+      update.latestVersion,
+      Linking.openURL,
+    ).catch(() => {
+      setAndroidUpdateActionError(localizedCopy(
+        language,
+        "无法打开官方更新地址，请检查网络后重试。",
+        "The official update address could not be opened. Check your connection and try again.",
+      ));
+    });
+  };
+  const remindAndroidUpdateLater = (update: AndroidUpdate) => {
+    if (update.required) return;
+    setOptionalAndroidUpdate(null);
+    setAndroidUpdateActionError(null);
+    void setSetting(
+      ANDROID_UPDATE_SNOOZE_SETTING_KEY,
+      createAndroidUpdateSnooze(update),
+    ).catch(() => undefined);
+  };
+  const retryAndroidUpdate = () => {
+    setAndroidUpdateActionError(null);
+    retryAndroidUpdateGate.current();
+  };
+  const appSurfaceReady = Platform.OS !== "android" || androidUpdateGateReady;
+
   return (
     <I18nProvider language={language} preference={languagePreference}>
     <SafeAreaProvider>
       <StatusBar style={screen === "camera" ? "light" : "dark"} />
-      {screen === "boot" ? <BootScreen /> : null}
-      {screen === "setup" ? (
+      {!appSurfaceReady || screen === "boot" ? <BootScreen /> : null}
+      {appSurfaceReady && screen === "setup" ? (
         <ApiSetupScreen
           {...(setupInitial ? { initial: setupInitial } : {})}
           existingSecretHint={secretHint}
@@ -1525,7 +1770,7 @@ export default function App() {
             : {})}
         />
       ) : null}
-      {screen === "home" ? (
+      {appSurfaceReady && screen === "home" ? (
         <HomeScreen
           dateLabel={formatLocalDateChinese(today, localeTag(language))}
           summary={homeSummary}
@@ -1540,14 +1785,14 @@ export default function App() {
           onTabChange={navigateTab}
         />
       ) : null}
-      {screen === "camera" ? (
+      {appSurfaceReady && screen === "camera" ? (
         <CameraScreen
           captureCleanup={pendingPrivateFileCleanup}
           onCancel={() => setScreen("home")}
           onPhoto={analyzePhoto}
         />
       ) : null}
-      {screen === "analysis" && photo ? (
+      {appSurfaceReady && screen === "analysis" && photo ? (
         <AnalysisScreen
           photoUri={photo.uri}
           providerLabel={configuration ? providerDisplayName(configuration.config.displayName, language) : "AI API"}
@@ -1556,7 +1801,7 @@ export default function App() {
           onCancel={() => void cancelPhotoFlow(analysisError ? "camera" : "home")}
         />
       ) : null}
-      {screen === "review" && photo && analysisResult && configuration ? (
+      {appSurfaceReady && screen === "review" && photo && analysisResult && configuration ? (
         <ReviewScreen
           photoUri={photo.uri}
           analysis={analysisToReview(analysisResult.data)}
@@ -1567,7 +1812,7 @@ export default function App() {
           onConfirm={confirmMeal}
         />
       ) : null}
-      {screen === "reports" ? (
+      {appSurfaceReady && screen === "reports" ? (
         <ReportsScreen
           period={period}
           summary={periodSummary ?? fallbackPeriod}
@@ -1579,7 +1824,7 @@ export default function App() {
           onTabChange={navigateTab}
         />
       ) : null}
-      {screen === "settings" && configuration ? (
+      {appSurfaceReady && screen === "settings" && configuration ? (
         <SettingsScreen
           providerLabel={providerDisplayName(configuration.config.displayName, language)}
           endpointLabel={`${endpointHost(configuration.config)} · ${configuration.config.visionModel}`}
@@ -1611,6 +1856,16 @@ export default function App() {
           onTabChange={navigateTab}
         />
       ) : null}
+      <NativeUpdateOverlay
+        language={language}
+        update={androidUpdateForOverlay}
+        gateFailure={androidUpdateGateFailure}
+        checking={checkingAndroidUpdate}
+        actionError={androidUpdateActionError}
+        onUpdate={openAndroidUpdate}
+        onRetry={retryAndroidUpdate}
+        onRemindLater={remindAndroidUpdateLater}
+      />
     </SafeAreaProvider>
     </I18nProvider>
   );
