@@ -5,18 +5,18 @@
 **Version / 版本：1.2.2 (6)**  
 **Evidence time / 证据时间：`2026-08-24T20:37:02Z`**
 
-This document records observed release-candidate evidence and does not claim a
+This document records observed final-release evidence and does not claim a
 bit-for-bit reproducible build. Signing secrets, private tokens, emulator
 serials, user data and local absolute paths are intentionally excluded. Public
-GitHub and Kawan Campus state is verified separately after publication. / 本文记录已观察到的
-候选发布证据，不声称构建已达到比特级可复现，也不包含签名密钥、私有 Token、模拟器序列号、
-用户数据或本机绝对路径；GitHub 与 Kawan Campus 的公开状态在发布后另行验证。
+GitHub and Kawan Campus state was independently verified after publication. / 本文记录已观察到的
+最终发布证据，不声称构建已达到比特级可复现，也不包含签名密钥、私有 Token、模拟器序列号、
+用户数据或本机绝对路径；GitHub 与 Kawan Campus 的公开状态已在发布后独立验证。
 
 ## Artifact identity / 产物身份
 
-| Field / 字段 | Verified or pending value / 已验证或待验证值 |
+| Field / 字段 | Verified value / 已验证值 |
 |---|---|
-| Intended Git tag | `v1.2.2`; public publication is a separate post-merge gate |
+| Git tag and Release | Annotated `v1.2.2` tag targets merge commit `2f248a0`; public Release published `2026-08-24T20:51:10Z` |
 | Build source commit | `9d1d065` |
 | Android asset | `calorie-steward-v1.2.2-android-enterprise.apk` |
 | Application ID | `com.laisystems.dietsteward` |
@@ -139,6 +139,15 @@ manifest can persistently gate an older build without giving the user a working
 download, so asset publication and independent URL verification must happen first.
 / 不应在对应签名 APK 与校验和可公开访问前提前推进清单，否则会造成更新失败体验。
 
+For v1.2.2, the six GitHub assets were published first. GitHub's asset digest,
+an independent streamed download and the downloadable checksum all matched
+`150d159681e451ada88bf46311dde851e2d486cb2a46201f46437be34da8c76a`.
+The Kawan Campus manifest was then deployed at 100% traffic and re-read publicly
+as JSON with Build 6, the same digest, CORS, `nosniff`, browser revalidation and
+the bounded CDN cache policy. / v1.2.2 先公开 6 个 GitHub 资产，再独立下载核对 APK、
+GitHub 资产摘要与校验文件；三者哈希一致后才将 Kawan Campus 清单部署到 100% 流量，
+并从公网复核 JSON、Build 6、同一哈希、CORS、`nosniff` 与缓存策略。
+
 ## Explicit boundaries / 明确边界
 
 | Area / 领域 | Status / 状态 |
@@ -159,8 +168,8 @@ download, so asset publication and independent URL verification must happen firs
 
 ## Release conclusion / 发布结论
 
-**GO for the signed Android portfolio release after the GitHub asset/checksum
-and Kawan Campus manifest are independently confirmed public. The physical-device,
+**GO: the signed Android portfolio release, checksum, compliance assets and
+Kawan Campus manifest are public and independently re-read. The physical-device,
 iOS, paid-provider and weighed-food accuracy boundaries above remain open.
-/ 在 GitHub 安装包/校验文件与 Kawan Campus 清单分别确认公开后，可发布签名 Android
-作品集版本；真机、iOS、付费 Provider 与称重准确率边界仍未关闭。**
+/ GO：签名 Android 作品集版本、校验文件、合规资产与 Kawan Campus 清单均已公开并完成
+独立复核；真机、iOS、付费 Provider 与称重准确率边界仍未关闭。**
