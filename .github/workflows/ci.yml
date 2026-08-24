@@ -48,17 +48,7 @@ jobs:
         run: npm run verify
 
       - name: Type-check public real-vision harness
-        run: >-
-          ./mobile-app/node_modules/.bin/tsc
-          --noEmit
-          --skipLibCheck
-          --strict
-          --target ES2022
-          --module ESNext
-          --moduleResolution Bundler
-          --types node
-          test-harness/runThreeRealRounds.ts
-          test-harness/codexVisionProxy.ts
+        run: ./mobile-app/node_modules/.bin/tsc --project test-harness/tsconfig.json
 
   catalogue-unit-tests:
     name: Historical catalogue unit tests

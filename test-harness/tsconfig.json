@@ -1,0 +1,13 @@
+{
+  "compilerOptions": {
+    "noEmit": true,
+    "skipLibCheck": true,
+    "strict": true,
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "types": ["node"],
+    "typeRoots": ["../mobile-app/node_modules/@types"]
+  },
+  "include": ["runThreeRealRounds.ts", "codexVisionProxy.ts"]
+}
