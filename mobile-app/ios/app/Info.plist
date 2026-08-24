@@ -7,7 +7,7 @@
     <key>CFBundleDevelopmentRegion</key>
     <string>$(DEVELOPMENT_LANGUAGE)</string>
     <key>CFBundleDisplayName</key>
-    <string>Diet Steward</string>
+    <string>Calorie Steward</string>
     <key>CFBundleExecutable</key>
     <string>$(EXECUTABLE_NAME)</string>
     <key>CFBundleIdentifier</key>
@@ -19,7 +19,7 @@
     <key>CFBundlePackageType</key>
     <string>$(PRODUCT_BUNDLE_PACKAGE_TYPE)</string>
     <key>CFBundleShortVersionString</key>
-    <string>1.2.0</string>
+    <string>1.2.1</string>
     <key>CFBundleSignature</key>
     <string>????</string>
     <key>CFBundleURLTypes</key>
@@ -33,7 +33,7 @@
       </dict>
     </array>
     <key>CFBundleVersion</key>
-    <string>4</string>
+    <string>5</string>
     <key>ITSAppUsesNonExemptEncryption</key>
     <false/>
     <key>LSMinimumSystemVersion</key>
@@ -50,9 +50,9 @@
       <true/>
     </dict>
     <key>NSCameraUsageDescription</key>
-    <string>Allow Diet Steward to photograph meals and send them to your configured AI service for nutrition analysis.</string>
+    <string>Allow Calorie Steward to photograph meals and send them to your configured AI service for nutrition analysis.</string>
     <key>NSFaceIDUsageDescription</key>
-    <string>Allow Diet Steward to use Face ID to protect API credentials.</string>
+    <string>Allow Calorie Steward to use Face ID to protect API credentials.</string>
     <key>RCTMetroPort</key>
     <string>$(RCT_METRO_PORT)</string>
     <key>UILaunchStoryboardName</key>

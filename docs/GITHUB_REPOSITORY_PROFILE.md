@@ -2,7 +2,7 @@
 
 ## Recommended repository name / 推荐仓库名
 
-`lzy2767865503-pixel/diet-steward-ai`
+`lzy2767865503-pixel/calorie-steward-ai`
 
 Why: the selected name remains product-led and understandable while making its AI product category discoverable. It is not tied to a single model or mobile platform.
 
@@ -10,7 +10,7 @@ Why: the selected name remains product-led and understandable while making its A
 
 ## Display name / 展示名
 
-`Diet Steward / 饮食管家`
+`Calorie Steward / 卡路里管家`
 
 ## About description
 
@@ -22,7 +22,7 @@ Why: the selected name remains product-led and understandable while making its A
 
 ## Suggested release title
 
-`Diet Steward v1.2.0 — Bilingual Portfolio Edition / 中英双语作品集版`
+`Calorie Steward v1.2.1 — Bilingual Portfolio Edition / 中英双语作品集版`
 
 ## Suggested social preview text
 
@@ -37,10 +37,10 @@ Why: the selected name remains product-led and understandable while making its A
 - Enable secret scanning, push protection, Dependabot alerts and dependency graph where the account plan supports them.
 - Create the APK as a GitHub Release asset; do not commit it to Git history.
 - Publish the SHA-256 and certificate fingerprint beside the asset.
-- Use an annotated tag such as `v1.2.0`, publish the signed APK and its
+- Use an annotated tag such as `v1.2.1`, publish the signed APK and its
   certificate/checksum evidence, and only claim a cryptographically signed Git
   tag when GPG or SSH tag signing has actually been configured.
 
 ## Suggested pinned-profile line
 
-`I created and product-led Diet Steward, a bilingual AI nutrition journal that turns camera-first estimates into privacy-aware longitudinal insight. I used AI-assisted vibe coding while owning the product decisions, architecture boundaries and release evidence.`
+`I created and product-led Calorie Steward, a bilingual AI nutrition journal that turns camera-first estimates into privacy-aware longitudinal insight. I used AI-assisted vibe coding while owning the product decisions, architecture boundaries and release evidence.`

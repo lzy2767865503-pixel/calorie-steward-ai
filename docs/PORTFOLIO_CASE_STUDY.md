@@ -1,4 +1,4 @@
-# Diet Steward / 饮食管家——产品与 AI 设计案例
+# Calorie Steward / 卡路里管家——产品与 AI 设计案例
 
 **Creator, product lead and developer / 发起人、产品负责人与开发者：LAI ZEYU (来泽宇)**  
 **Method / 方法：AI-assisted vibe coding with human-owned product and release decisions / AI 辅助 vibe coding，人负责产品与发布决策**

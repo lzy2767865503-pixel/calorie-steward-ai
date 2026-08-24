@@ -256,8 +256,8 @@ export function ApiSetupScreen({
               <Ionicons name="nutrition-outline" size={27} color={colors.teal} />
             </View>
             <View>
-              <Text style={styles.brandName}>{t("饮食管家", "Diet Steward")}</Text>
-              <Text style={styles.brandTagline}>{t("身体饮食管家", "AI NUTRITION JOURNAL")}</Text>
+              <Text style={styles.brandName}>{t("卡路里管家", "Calorie Steward")}</Text>
+              <Text style={styles.brandTagline}>{t("智能卡路里管家", "AI CALORIE JOURNAL")}</Text>
             </View>
           </View>
 

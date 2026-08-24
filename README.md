@@ -1,4 +1,4 @@
-# Diet Steward / 饮食管家
+# Calorie Steward / 卡路里管家
 
 **Camera-first, uncertainty-aware AI nutrition journaling.**  
 **一款以拍照为唯一餐食入口、显式表达不确定性的 AI 饮食记录 App。**
@@ -7,7 +7,7 @@
 > AI-assisted vibe-coding workflow. Product decisions, architecture boundaries,
 > acceptance criteria and release accountability remain human-owned.
 
-[中文](#中文) · [English](#english) · [Android releases](https://github.com/lzy2767865503-pixel/diet-steward-ai/releases) ·
+[中文](#中文) · [English](#english) · [Android releases](https://github.com/lzy2767865503-pixel/calorie-steward-ai/releases) ·
 [Security](SECURITY.md) · [Contributing](CONTRIBUTING.md) · [Case study](docs/PORTFOLIO_CASE_STUDY.md)
 
 ---
@@ -16,7 +16,7 @@
 
 ### 从问题到产品
 
-传统饮食记录需要搜索菜名、估算克重并手工填写，操作成本高，很难长期坚持；而“拍照立即给出一个精确卡路里”又会忽略隐藏的油、糖、配方和份量误差。Diet Steward 把这个冲突定义为产品核心：**尽可能降低记录摩擦，同时不把 AI 估算伪装成实验室测量。**
+传统饮食记录需要搜索菜名、估算克重并手工填写，操作成本高，很难长期坚持；而“拍照立即给出一个精确卡路里”又会忽略隐藏的油、糖、配方和份量误差。Calorie Steward 把这个冲突定义为产品核心：**尽可能降低记录摩擦，同时不把 AI 估算伪装成实验室测量。**
 
 | 阶段 | 产品判断 | 实现 |
 |---|---|---|
@@ -60,15 +60,15 @@ flowchart LR
 
 项目包含 TypeScript 类型检查、领域规则测试、API 协议和失败边界测试、Android 构建与安装检查，以及一次历史本地三图功能回归：两张餐食图片和一张空盘通过本机鉴权的 Codex 视觉代理运行。该运行使用真实推理而非 mock，但不是公开 CI、最终 APK 的付费 Provider 验收或企业网关验收。出于版权与个人数据谨慎，回归图片和原始结果不进入公开 Git 历史；`test-harness/` 保留了可使用自有/获授权图片和自行配置的视觉服务重跑的代码。这些证据支持“已验证产品链路与拒绝边界”，**不代表已完成大规模独立准确率基准、线上付费 Provider 验收、企业网关生产验收或医疗器械认证**。CI 中的 `npm audit --audit-level=high` 仅审计 `mobile-app/package-lock.json` 对应的 npm 依赖树，不是对 Gradle、Python 依赖或供应链风险的全面保证。
 
-v1.2.0 最终发布门禁通过 **169/169** 项自动化测试（移动端 147、历史后端 15、食品数据管道 7），Android Lint 与 Release 构建通过，最终签名 APK 已在 Android API 24（中英文）与 API 35 完成安装、冷启动和崩溃日志检查。APK SHA-256：`d2cf6f56ec6d67546cad449a03fb6d84714476689561c65ee871b87004e7c170`。
+v1.2.1 最终发布门禁通过 **170/170** 项自动化测试（移动端 148、历史后端 15、食品数据管道 7），Android Lint 与 Release 构建通过，最终签名 APK 已在 Android API 24（中文）与 API 35（英文）完成安装、冷启动和崩溃日志检查；API 35 还验证了从同签名 v1.2.0 覆盖升级到 v1.2.1。APK SHA-256：`f574f09621be410708a3bd035a3dcaaa5918be1091969617d3a57e37c5dceb0d`。
 
 ### 下载与本地运行
 
-已签名 Android APK 应从 [GitHub Releases](https://github.com/lzy2767865503-pixel/diet-steward-ai/releases) 下载，并与 Release 页面的 SHA-256 比对。APK 不应直接提交到 Git 历史。
+已签名 Android APK 应从 [GitHub Releases](https://github.com/lzy2767865503-pixel/calorie-steward-ai/releases) 下载，并与 Release 页面的 SHA-256 比对。APK 不应直接提交到 Git 历史。
 
 ```bash
-git clone https://github.com/lzy2767865503-pixel/diet-steward-ai.git
-cd diet-steward-ai/mobile-app
+git clone https://github.com/lzy2767865503-pixel/calorie-steward-ai.git
+cd calorie-steward-ai/mobile-app
 npm ci
 npm run verify
 npx expo start
@@ -98,7 +98,7 @@ iOS 仅为源码兼容目标：本次没有生成可分发的 iOS 构建、没�
 
 ### From problem discovery to product
 
-Manual food logging asks people to search for dishes, estimate grams and fill in forms, which creates too much friction for a lasting habit. At the other extreme, returning one apparently exact calorie number from a photo hides uncertainty from oil, sauces, recipes and portion size. Diet Steward treats that tension as the core product problem: **make logging fast without presenting an AI estimate as a laboratory measurement.**
+Manual food logging asks people to search for dishes, estimate grams and fill in forms, which creates too much friction for a lasting habit. At the other extreme, returning one apparently exact calorie number from a photo hides uncertainty from oil, sauces, recipes and portion size. Calorie Steward treats that tension as the core product problem: **make logging fast without presenting an AI estimate as a laboratory measurement.**
 
 | Stage | Product decision | Implementation |
 |---|---|---|
@@ -120,11 +120,11 @@ Manual food logging asks people to search for dishes, estimate grams and fill in
 
 ### Architecture and AI design
 
-The diagram in the Chinese section shows the shared client flow. The important design boundary is that a generative model proposes structured evidence; deterministic application code validates, aggregates and scores it. This makes model failures visible and testable instead of allowing plausible prose to become health data automatically. The installable, signed and runtime-verified v1.2.0 artifact is Android-only; iOS is a source/configuration target and was not built, signed or released.
+The diagram in the Chinese section shows the shared client flow. The important design boundary is that a generative model proposes structured evidence; deterministic application code validates, aggregates and scores it. This makes model failures visible and testable instead of allowing plausible prose to become health data automatically. The installable, signed and runtime-verified v1.2.1 artifact is Android-only; iOS is a source/configuration target and was not built, signed or released.
 
 `mobile-app/` is the current product. `android-app/`, `backend/` and `data-pipeline/` preserve earlier auditable barcode/catalogue experiments and are not the default runtime path. The first public release excludes the internal `design-prototype/` because redistribution provenance for its device-frame and keyboard assets has not yet been verified.
 
-The public scope includes the source, tests, CI and documentation needed to build and inspect the current client. The only installable, signed and runtime-verified release artifact in v1.2.0 is the Android APK; iOS remains source/configuration only and was not built, signed or released. Only prototype visual material without confirmed redistribution rights, private regression inputs/raw results, local credentials and signing private keys are excluded. The APK is published as a GitHub Release asset rather than committed to Git history.
+The public scope includes the source, tests, CI and documentation needed to build and inspect the current client. The only installable, signed and runtime-verified release artifact in v1.2.1 is the Android APK; iOS remains source/configuration only and was not built, signed or released. Only prototype visual material without confirmed redistribution rights, private regression inputs/raw results, local credentials and signing private keys are excluded. The APK is published as a GitHub Release asset rather than committed to Git history.
 
 ### Scientific and security boundary
 
@@ -132,15 +132,15 @@ A single photo cannot prove exact edible weight, hidden oil, sauces or brand for
 
 The repository includes type checks, domain-rule tests, API-contract and failure-boundary tests, Android build/install checks, and a harness for vision regression. The recorded three-image result was a historical local functional run: two meal images plus an empty-plate control were processed through an authenticated local Codex vision proxy using real inference rather than a mock. It was not public CI, final-APK paid-provider acceptance or enterprise-gateway acceptance. To avoid publishing material without verified redistribution rights or personal-data clearance, the images and raw results are excluded from public Git history. Contributors can rerun the harness with images they own or are licensed to use and a vision service they configure; that does not independently reproduce the private historical inputs. The evidence supports that the implemented product path and refusal behavior ran; it **does not establish a large independent accuracy benchmark, production paid-provider/gateway acceptance, clinical validation or regulatory approval**. CI's `npm audit --audit-level=high` covers the npm dependency tree locked by `mobile-app/package-lock.json`; it is not an audit of Gradle, Python or every supply-chain risk.
 
-The final v1.2.0 gate passed **169/169** automated tests (147 mobile, 15 historical-backend and 7 food-pipeline tests), Android Lint and the signed release build. The final APK was installed and cold-launched on Android API 24 (Chinese and English) and API 35 with no app-fatal errors in the captured launch logs. APK SHA-256: `d2cf6f56ec6d67546cad449a03fb6d84714476689561c65ee871b87004e7c170`.
+The final v1.2.1 gate passed **170/170** automated tests (148 mobile, 15 historical-backend and 7 food-pipeline tests), Android Lint and the signed release build. The final APK was installed and cold-launched on Android API 24 (Chinese) and API 35 (English) with no app-fatal errors in the captured launch logs; API 35 also passed an in-place upgrade from the same-signed v1.2.0 package. APK SHA-256: `f574f09621be410708a3bd035a3dcaaa5918be1091969617d3a57e37c5dceb0d`.
 
 ### Download and run
 
-Download a signed Android package from [GitHub Releases](https://github.com/lzy2767865503-pixel/diet-steward-ai/releases) and compare it with the SHA-256 shown on the release page. Release APKs are assets, not Git-history blobs.
+Download a signed Android package from [GitHub Releases](https://github.com/lzy2767865503-pixel/calorie-steward-ai/releases) and compare it with the SHA-256 shown on the release page. Release APKs are assets, not Git-history blobs.
 
 ```bash
-git clone https://github.com/lzy2767865503-pixel/diet-steward-ai.git
-cd diet-steward-ai/mobile-app
+git clone https://github.com/lzy2767865503-pixel/calorie-steward-ai.git
+cd calorie-steward-ai/mobile-app
 npm ci
 npm run verify
 npx expo start
@@ -165,4 +165,4 @@ Commercial value here is a product and engineering thesis, not a claim of revenu
 - Contribution guide: [CONTRIBUTING.md](CONTRIBUTING.md)
 - Portfolio narrative and truthful resume bullets: [case study](docs/PORTFOLIO_CASE_STUDY.md) and [resume bullets](docs/RESUME_BULLETS.md)
 
-Diet Steward is a nutrition estimation and journaling tool. It is not a medical device, diagnostic service or substitute for professional care.
+Calorie Steward is a nutrition estimation and journaling tool. It is not a medical device, diagnostic service or substitute for professional care.

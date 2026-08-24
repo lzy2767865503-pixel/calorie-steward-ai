@@ -206,10 +206,10 @@ test("a retained copy that cannot be immediately removed is queued before the di
 
 test("export files can only be written to the generated private cache family", async () => {
   const uri = createExportFileUri("export-1");
-  assert.equal(uri, "file:///cache/diet-steward-export-export-1.json");
+  assert.equal(uri, "file:///cache/calorie-steward-export-export-1.json");
   await writeExportFile(uri, "{}");
   await assert.rejects(
-    writeExportFile("file:///documents/diet-steward-export-secret.json", "{}"),
+    writeExportFile("file:///documents/calorie-steward-export-secret.json", "{}"),
     /App 私有缓存目录/,
   );
 });

@@ -1362,7 +1362,7 @@ export default function App() {
         }
         await Sharing.shareAsync(uri, {
           mimeType: "application/json",
-          dialogTitle: localizedCopy(language, "导出饮食管家记录", "Export Diet Steward records"),
+          dialogTitle: localizedCopy(language, "导出卡路里管家记录", "Export Calorie Steward records"),
         });
       });
     } catch (error) {
@@ -1623,7 +1623,7 @@ function BootScreen() {
       <View style={styles.bootMark}>
         <ActivityIndicator color={colors.teal} size="large" />
       </View>
-      <Text style={styles.bootTitle}>{t("饮食管家", "Diet Steward")}</Text>
+      <Text style={styles.bootTitle}>{t("卡路里管家", "Calorie Steward")}</Text>
       <Text style={styles.bootBody}>{t("正在打开本机记录和安全凭据…", "Opening on-device records and secure credentials…")}</Text>
       <Text style={styles.bootCredit}>{officialAttribution(language)}</Text>
     </SafeAreaView>

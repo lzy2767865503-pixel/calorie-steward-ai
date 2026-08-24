@@ -9,7 +9,7 @@ const scriptDirectory = dirname(fileURLToPath(import.meta.url));
 const repositoryRoot = resolve(scriptDirectory, "..");
 const androidRoot = join(repositoryRoot, "mobile-app", "android");
 const releaseRoot = join(repositoryRoot, "release");
-const version = "1.2.0";
+const version = "1.2.1";
 const requestedEvidenceTime = process.env.RELEASE_EVIDENCE_UTC ?? new Date().toISOString();
 const parsedEvidenceTime = new Date(requestedEvidenceTime);
 if (Number.isNaN(parsedEvidenceTime.getTime())) {
@@ -74,7 +74,7 @@ if (absolutePathPattern.test(tree)) {
 }
 
 const report = [
-  `Diet Steward v${version} Android release runtime dependency inventory`,
+  `Calorie Steward v${version} Android release runtime dependency inventory`,
   `Generated: ${evidenceTime}`,
   "Developer: LAI ZEYU (来泽宇)",
   "Configuration: :app releaseRuntimeClasspath",
@@ -86,7 +86,7 @@ const report = [
 mkdirSync(releaseRoot, { recursive: true });
 const outputPath = join(
   releaseRoot,
-  `diet-steward-v${version}-android-runtime-dependencies.txt`,
+  `calorie-steward-v${version}-android-runtime-dependencies.txt`,
 );
 writeFileSync(outputPath, report);
 console.log(

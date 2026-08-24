@@ -1,3 +1,3 @@
-"CFBundleDisplayName" = "Diet Steward";
-"NSCameraUsageDescription" = "Allow Diet Steward to photograph meals and send them to your configured AI service for nutrition analysis.";
-"NSFaceIDUsageDescription" = "Allow Diet Steward to use Face ID to protect API credentials.";
+"CFBundleDisplayName" = "Calorie Steward";
+"NSCameraUsageDescription" = "Allow Calorie Steward to photograph meals and send them to your configured AI service for nutrition analysis.";
+"NSFaceIDUsageDescription" = "Allow Calorie Steward to use Face ID to protect API credentials.";

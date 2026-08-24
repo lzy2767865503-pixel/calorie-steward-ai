@@ -89,7 +89,7 @@ export function HomeScreen({
                 <Ionicons name="nutrition-outline" size={24} color={colors.teal} />
               </View>
               <View>
-                <Text style={styles.brand}>{t("饮食管家", "Diet Steward")}</Text>
+                <Text style={styles.brand}>{t("卡路里管家", "Calorie Steward")}</Text>
                 <Text style={styles.date}>
                   {enterpriseWorkspace?.organizationName ?? dateLabel}
                 </Text>

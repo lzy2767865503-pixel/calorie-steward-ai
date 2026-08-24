@@ -3,8 +3,9 @@ import test from "node:test";
 
 import { createPendingFileCleanupManager } from "./pendingFileCleanup";
 
-const EXPORT_A = "file:///app/cache/diet-steward-export-a.json";
-const EXPORT_B = "file:///app/cache/diet-steward-export-b.json";
+const EXPORT_A = "file:///app/cache/calorie-steward-export-a.json";
+const EXPORT_B = "file:///app/cache/calorie-steward-export-b.json";
+const LEGACY_EXPORT = "file:///app/cache/diet-steward-export-legacy.json";
 const MEAL_PHOTO = "file:///app/documents/meal-photos/meal-1.jpg";
 const RAW_CAPTURE =
   "file:///app/cache/Camera/11111111-1111-4111-8111-111111111111.jpg";
@@ -56,6 +57,14 @@ test("retry removes the queue only after every private file is confirmed deleted
   const fixture = memoryManager([EXPORT_A, MEAL_PHOTO]);
   const result = await fixture.manager.retryAll();
   assert.deepEqual(result, { attempted: 2, remaining: 0 });
+  assert.equal(fixture.stored(), null);
+});
+
+test("retry accepts a legacy export filename left by a pre-rebrand upgrade", async () => {
+  const fixture = memoryManager([LEGACY_EXPORT]);
+  const result = await fixture.manager.retryAll();
+  assert.deepEqual(result, { attempted: 1, remaining: 0 });
+  assert.deepEqual(fixture.deleted, [LEGACY_EXPORT]);
   assert.equal(fixture.stored(), null);
 });
 

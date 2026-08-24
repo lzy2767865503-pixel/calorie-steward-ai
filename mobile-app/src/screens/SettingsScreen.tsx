@@ -96,7 +96,7 @@ export function SettingsScreen({
         <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
           <View style={styles.header}>
             <View>
-              <Text style={styles.eyebrow}>{t("身体饮食管家", "AI NUTRITION JOURNAL")}</Text>
+              <Text style={styles.eyebrow}>{t("智能卡路里管家", "AI CALORIE JOURNAL")}</Text>
               <Text style={styles.title}>{t("设置与隐私", "Settings & privacy")}</Text>
               <Text style={styles.subtitle}>{t("记录主要存于本机；识别与报告数据发送到已确认的服务", "Records stay mainly on device; recognition and report data go only to the confirmed service")}</Text>
             </View>
@@ -314,13 +314,13 @@ export function SettingsScreen({
 
           <Card>
             <Text style={styles.cardEyebrow}>{t("关于", "ABOUT")}</Text>
-            <Text style={styles.cardTitle}>{t("饮食管家 v1.2.0", "Diet Steward v1.2.0")}</Text>
+            <Text style={styles.cardTitle}>{t("卡路里管家 v1.2.1", "Calorie Steward v1.2.1")}</Text>
             <Text style={styles.developerAttribution}>{officialAttribution(language)}</Text>
             <Text style={styles.cardBody}>{t("这是官方版本的作者署名。官方构建门禁会在署名意外缺失时失败；由于项目开源，第三方 fork 仍可依法修改源代码和界面。", "This is the official build attribution. The official build gate fails if it is accidentally removed. Because the project is open source, third-party forks can still lawfully modify the source and interface.")}</Text>
           </Card>
 
           <Notice title={t("不是医疗诊断", "Not a medical diagnosis")} tone="info">
-            {t("饮食管家用于日常饮食记录和结构观察，不替代医生、营养师、血液检测或称重实验。", "Diet Steward supports everyday diet logging and pattern awareness. It does not replace a doctor, dietitian, blood test, or weighed-food study.")}
+            {t("卡路里管家用于日常饮食记录和结构观察，不替代医生、营养师、血液检测或称重实验。", "Calorie Steward supports everyday diet logging and pattern awareness. It does not replace a doctor, dietitian, blood test, or weighed-food study.")}
           </Notice>
         </ScrollView>
         <BottomNav current="settings" onChange={onTabChange} />

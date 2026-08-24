@@ -118,7 +118,7 @@ export function createExportFileUri(exportId: string): string {
   if (!/^[A-Za-z0-9._-]{1,96}$/.test(exportId)) {
     throw new Error("导出文件 ID 无效。");
   }
-  return `${FileSystem.cacheDirectory}diet-steward-export-${exportId}.json`;
+  return `${FileSystem.cacheDirectory}calorie-steward-export-${exportId}.json`;
 }
 
 export async function writeExportFile(uri: string, contents: string): Promise<void> {
@@ -126,7 +126,7 @@ export async function writeExportFile(uri: string, contents: string): Promise<vo
   const fileName = uri.startsWith(FileSystem.cacheDirectory)
     ? uri.slice(FileSystem.cacheDirectory.length)
     : "";
-  if (!/^diet-steward-export-[A-Za-z0-9._-]+\.json$/.test(fileName)) {
+  if (!/^calorie-steward-export-[A-Za-z0-9._-]+\.json$/.test(fileName)) {
     throw new Error("导出文件必须位于 App 私有缓存目录。");
   }
   await FileSystem.writeAsStringAsync(uri, contents, {

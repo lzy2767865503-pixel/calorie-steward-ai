@@ -1,10 +1,10 @@
 {
   "expo": {
-    "name": "Diet Steward",
-    "slug": "diet-steward",
+    "name": "Calorie Steward",
+    "slug": "calorie-steward",
     "scheme": "dietsteward",
-    "version": "1.2.0",
-    "icon": "../android-app/branding/diet-steward-app-icon-v1.2.png",
+    "version": "1.2.1",
+    "icon": "../android-app/branding/calorie-steward-app-icon-v1.2.1.png",
     "orientation": "portrait",
     "userInterfaceStyle": "light",
     "locales": {
@@ -17,7 +17,7 @@
       [
         "expo-camera",
         {
-          "cameraPermission": "Allow Diet Steward to photograph meals and send them to your configured AI service for nutrition analysis.",
+          "cameraPermission": "Allow Calorie Steward to photograph meals and send them to your configured AI service for nutrition analysis.",
           "recordAudioAndroid": false,
           "barcodeScannerEnabled": false
         }
@@ -26,7 +26,7 @@
         "expo-secure-store",
         {
           "configureAndroidBackup": true,
-          "faceIDPermission": "Allow Diet Steward to use Face ID to protect API credentials."
+          "faceIDPermission": "Allow Calorie Steward to use Face ID to protect API credentials."
         }
       ],
       "expo-sharing"
@@ -34,17 +34,17 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.laisystems.dietsteward",
-      "buildNumber": "4",
+      "buildNumber": "5",
       "config": {
         "usesNonExemptEncryption": false
       }
     },
     "android": {
       "package": "com.laisystems.dietsteward",
-      "versionCode": 4,
+      "versionCode": 5,
       "predictiveBackGestureEnabled": true,
       "adaptiveIcon": {
-        "foregroundImage": "../android-app/branding/diet-steward-app-icon-v1.2.png",
+        "foregroundImage": "../android-app/branding/calorie-steward-app-icon-v1.2.1.png",
         "backgroundColor": "#062E6F"
       },
       "blockedPermissions": [
