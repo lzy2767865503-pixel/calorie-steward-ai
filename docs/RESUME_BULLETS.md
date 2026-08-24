@@ -1,8 +1,8 @@
 # Resume bullets / 简历要点
 
-These bullets are deliberately evidence-bounded and use the verified v1.2.1 release results. Do not add user, revenue or accuracy numbers unless they come from a documented study.
+These bullets are deliberately evidence-bounded and use the verified v1.2.2 release results. Do not add user, revenue or accuracy numbers unless they come from a documented study.
 
-以下要点可直接使用，其中 v1.2.1 数字来自已验证的发布证据。没有正式证据时，不要增加用户数、营收或准确率。
+以下要点可直接使用，其中 v1.2.2 数字来自已验证的发布证据。没有正式证据时，不要增加用户数、营收或准确率。
 
 ## 中文简历版
 
@@ -16,7 +16,7 @@ These bullets are deliberately evidence-bounded and use the verified v1.2.1 rele
 
 - 使用 AI-assisted vibe coding 构建 Expo React Native + TypeScript 跨平台代码库，完成 Android 签名包验证，并设计多 Provider 结构化契约、严格本地校验、SQLite 事务记录、SecureStore 凭据管理和失败即停止机制；iOS 仅为源码兼容，未完成签名发布。
 - 通过模型契约与确定性代码分工：AI 负责提出菜品、份量与营养范围，应用负责数值/一致性校验、汇总和评分，降低将生成内容直接写入健康记录的风险。
-- 建立 GitHub CI 门禁，覆盖移动端类型/自动化测试、历史后端/食品库单元测试、移动端 npm 依赖树高/严重级 advisory 审计、高置信密钥扫描与官方署名检查；v1.2.1 通过 **170/170** 项自动化测试并完成 v1.2.0 覆盖升级验证后发布已签名 Android 作品集 APK，iOS 仅为未发布的源码兼容目标。
+- 建立 GitHub CI 门禁，覆盖移动端类型/自动化测试、历史后端/食品库单元测试、移动端 npm 依赖树高/严重级 advisory 审计、高置信密钥扫描与官方署名检查；v1.2.2 通过 **185/185** 项自动化测试，并完成 v1.2.1 同签名覆盖升级及启动/回前台持续版本检查后发布 Android 作品集 APK，iOS 仅为未发布的源码兼容目标。
 
 ### 一行项目描述
 
@@ -34,7 +34,7 @@ These bullets are deliberately evidence-bounded and use the verified v1.2.1 rele
 
 - Built an Expo React Native + TypeScript cross-platform codebase through an AI-assisted vibe-coding workflow, verified the signed Android release, and designed multi-provider structured contracts, strict local validation, transactional SQLite records, SecureStore credential handling and explicit failure states; iOS remains source-compatible but unsigned and unreleased.
 - Separated generative inference from deterministic policy: AI proposes dish, portion and nutrition ranges; application code validates numeric consistency, aggregates longitudinal data and computes scores.
-- Established GitHub CI for mobile type/tests, historical backend/catalogue units, high/critical advisory auditing of the locked mobile npm dependency tree, high-confidence secret scanning and official attribution checks; published the signed Android portfolio APK after **170/170** automated tests and a same-signed v1.2.0 in-place upgrade passed, while keeping iOS explicitly source-compatible but unreleased.
+- Established GitHub CI for mobile type/tests, historical backend/catalogue units, high/critical advisory auditing of the locked mobile npm dependency tree, high-confidence secret scanning and official attribution checks; published the signed Android portfolio APK after **185/185** automated tests, a same-signed v1.2.1 in-place upgrade and startup/foreground release checks passed, while keeping iOS explicitly source-compatible but unreleased.
 
 ### One-line project description
 
