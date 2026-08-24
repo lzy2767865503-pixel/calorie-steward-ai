@@ -37,7 +37,9 @@ Why: the selected name remains product-led and understandable while making its A
 - Enable secret scanning, push protection, Dependabot alerts and dependency graph where the account plan supports them.
 - Create the APK as a GitHub Release asset; do not commit it to Git history.
 - Publish the SHA-256 and certificate fingerprint beside the asset.
-- Use a signed annotated tag such as `v1.2.0` to strengthen provenance.
+- Use an annotated tag such as `v1.2.0`, publish the signed APK and its
+  certificate/checksum evidence, and only claim a cryptographically signed Git
+  tag when GPG or SSH tag signing has actually been configured.
 
 ## Suggested pinned-profile line
 
