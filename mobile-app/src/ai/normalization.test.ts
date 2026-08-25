@@ -60,6 +60,49 @@ test('normalization accepts common provider aliases and numeric strings', () => 
   );
 });
 
+test('normalization turns a common flat food response into a usable estimate', () => {
+  const result = validateMealAnalysis(
+    normalizeMealAnalysisPayload(
+      {
+        food: 'Nasi lemak',
+        calories: 520,
+        protein: 18,
+        carbs: 68,
+        fat: 20,
+        confidence: 62,
+      },
+      'en-US',
+    ),
+    'openai_chat_compatible',
+  );
+
+  assert.equal(result.status, 'ok');
+  assert.equal(result.meal_name, 'Nasi lemak');
+  assert.equal(result.components.length, 1);
+  assert.equal(result.totals.energy_kcal.value, 520);
+  assert.doesNotThrow(() =>
+    assertRecordableMealAnalysis(result, 'openai_chat_compatible'),
+  );
+});
+
+test('calories without an identified food are never promoted to a meal', () => {
+  for (const payload of [
+    { status: 'mystery', calories: 420 },
+    { status: 'mystery', foods: [{ calories: 420 }], nutrition: { calories: 420 } },
+  ]) {
+    const result = validateMealAnalysis(
+      normalizeMealAnalysisPayload(payload),
+      'openai_chat_compatible',
+    );
+    assert.equal(result.status, 'unquantifiable');
+    assert.throws(
+      () => assertRecordableMealAnalysis(result, 'openai_chat_compatible'),
+      (error: unknown) =>
+        error instanceof AiProviderError && error.code === 'UNQUANTIFIABLE',
+    );
+  }
+});
+
 test('meal normalization fallbacks follow the requested English locale', () => {
   const normalized = normalizeMealAnalysisPayload(
     {
@@ -104,7 +147,7 @@ test('non-food aliases can never be promoted by component or calorie fields', ()
   );
 });
 
-test('missing or unknown status stays unquantifiable despite calorie fields', () => {
+test('missing or unknown status becomes a best-effort result when food and calories are usable', () => {
   for (const status of [undefined, 'mystery']) {
     const normalized = normalizeMealAnalysisPayload({
       status,
@@ -112,11 +155,12 @@ test('missing or unknown status stays unquantifiable despite calorie fields', ()
       nutrition: { calories: 100 },
     });
     const result = validateMealAnalysis(normalized, 'openai_chat_compatible');
-    assert.equal(result.status, 'unquantifiable');
-    assert.throws(
-      () => assertRecordableMealAnalysis(result, 'openai_chat_compatible'),
-      (error: unknown) =>
-        error instanceof AiProviderError && error.code === 'UNQUANTIFIABLE',
+    assert.equal(result.status, 'ok');
+    assert.doesNotThrow(() =>
+      assertRecordableMealAnalysis(result, 'openai_chat_compatible'),
+    );
+    assert.ok(
+      result.quality.uncertainties.some((item) => item.includes('低置信度视觉估算')),
     );
   }
 });
@@ -143,7 +187,28 @@ test('explicit non-food and retake signals override an optimistic ok status', ()
       normalizeMealAnalysisPayload(payload),
       'openai_chat_compatible',
     );
-    assert.equal(result.status, 'needs_retake');
+    assert.equal(result.status, 'ok');
     assert.equal(result.quality.retake_recommended, true);
+    assert.doesNotThrow(() =>
+      assertRecordableMealAnalysis(result, 'openai_chat_compatible'),
+    );
   }
+});
+
+test('retake remains required when no usable calorie estimate exists', () => {
+  const result = validateMealAnalysis(
+    normalizeMealAnalysisPayload({
+      status: 'needs_retake',
+      foods: [{ food: 'blurred meal' }],
+      confidence: { needs_retake: true },
+    }),
+    'openai_chat_compatible',
+  );
+
+  assert.equal(result.status, 'needs_retake');
+  assert.throws(
+    () => assertRecordableMealAnalysis(result, 'openai_chat_compatible'),
+    (error: unknown) =>
+      error instanceof AiProviderError && error.code === 'NEEDS_RETAKE',
+  );
 });

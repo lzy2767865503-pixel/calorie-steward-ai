@@ -49,6 +49,7 @@ export type UiMealAnalysis = {
     portionConfidence: number;
     nutritionConfidence: number;
     dataCoverage: number;
+    retakeRecommended: boolean;
     assumptions: string[];
     uncertainties: string[];
   };
@@ -124,6 +125,15 @@ export function ReviewScreen({
           </View>
         </View>
 
+        {analysis.quality.retakeRecommended || nutritionConfidence < 0.35 ? (
+          <Notice title={t("低置信度估算", "Low-confidence estimate")} tone="warning">
+            {t(
+              "已经给出可记录的宽范围结果。若食物或份量看起来不对，可以重新拍照；否则可直接确认。",
+              "A recordable wide-range estimate is available. Retake if the food or portion looks wrong; otherwise you can confirm it.",
+            )}
+          </Notice>
+        ) : null}
+
         <Card>
           <Text style={styles.cardEyebrow}>{t("一步校正份量", "ONE-STEP PORTION CHECK")}</Text>
           <Text style={styles.cardTitle}>{t("照片中的实际份量接近哪一档？", "Which option best matches the actual portion?")}</Text>
@@ -163,8 +173,16 @@ export function ReviewScreen({
                   <Text style={styles.componentPrep}>{component.preparation && component.preparation.toLowerCase() !== "unknown" ? component.preparation : t("烹饪方式未确定", "Preparation not determined")}</Text>
                 </View>
                 <View style={styles.componentNumbers}>
-                  <Text style={styles.componentKcal}>{scaled(component.energyKcal.value, portionFactor)} kcal</Text>
-                  <Text style={styles.componentWeight}>{t(`约 ${scaled(component.weightG.value, portionFactor)} g`, `about ${scaled(component.weightG.value, portionFactor)} g`)}</Text>
+                  <Text style={styles.componentKcal}>
+                    {component.energyKcal.available
+                      ? `${scaled(component.energyKcal.value, portionFactor)} kcal`
+                      : t("热量未知", "Calories unknown")}
+                  </Text>
+                  <Text style={styles.componentWeight}>
+                    {component.weightG.available
+                      ? t(`约 ${scaled(component.weightG.value, portionFactor)} g`, `about ${scaled(component.weightG.value, portionFactor)} g`)
+                      : t("份量未知", "Portion unknown")}
+                  </Text>
                 </View>
               </View>
             ))}

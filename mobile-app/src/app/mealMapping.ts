@@ -1,5 +1,6 @@
 import { randomUUID } from "expo-crypto";
 
+import { MEAL_PROMPT_VERSION } from "../ai";
 import type {
   AiCallResult,
   MealAnalysisV1,
@@ -82,6 +83,7 @@ export function analysisToReview(analysis: MealAnalysisV1): UiMealAnalysis {
       portionConfidence: analysis.quality.portion_confidence,
       nutritionConfidence: analysis.quality.nutrition_confidence,
       dataCoverage: analysis.quality.data_coverage,
+      retakeRecommended: analysis.quality.retake_recommended,
       assumptions: analysis.quality.assumptions,
       uncertainties: analysis.quality.uncertainties,
     },
@@ -217,7 +219,7 @@ export function createMealWrite(args: {
       endpointHost: new URL(args.config.baseUrl).host,
       providerRequestId: metadata.provider_request_id,
       analysisSchemaVersion: data.schema_version,
-      promptVersion: "meal-photo.v1.0",
+      promptVersion: MEAL_PROMPT_VERSION,
       status: "ok",
       requestStartedAtUtc: null,
       receivedAtUtc: metadata.received_at,

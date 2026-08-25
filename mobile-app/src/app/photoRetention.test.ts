@@ -5,6 +5,7 @@ import test from "node:test";
 import { validMeal } from "../ai/__tests__/fixtures";
 import { validateMealAnalysis, type AiCallResult, type MealAnalysisV1, type ProviderConfig } from "../ai";
 import { normalizeMealAnalysisPayload } from "../ai/normalization";
+import { MEAL_PROMPT_VERSION } from "../ai/prompts";
 import { addCalendarDays, evaluateDiaryDay, evaluateRolling28ValidDays } from "../domain/periods";
 import type { PreparedPhoto } from "../screens/CameraScreen";
 import { storedMealsToDiaryDay } from "../storage/domainMappers";
@@ -243,6 +244,7 @@ test("meal writes persist retained photo URI and SHA-256 as a pair", () => {
 
   assert.equal(meal.photoUri, "file:///documents/meal-photos/meal-1.jpg");
   assert.equal(meal.photoSha256, photoSha256);
+  assert.equal(meal.analysis.promptVersion, MEAL_PROMPT_VERSION);
 });
 
 test("inferred-component evidence follows the selected export language", () => {

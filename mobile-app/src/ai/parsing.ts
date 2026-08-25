@@ -42,15 +42,42 @@ export function parseStructuredJsonText(
   if (fenced?.[1] !== undefined) {
     trimmed = fenced[1].trim();
   }
-  if (!trimmed.startsWith('{') || !trimmed.endsWith('}') || trimmed.includes('```')) {
+
+  const candidates: string[] = [];
+  let start = -1;
+  let depth = 0;
+  let inString = false;
+  let escaped = false;
+  for (let index = 0; index < trimmed.length; index += 1) {
+    const character = trimmed[index]!;
+    if (inString) {
+      if (escaped) escaped = false;
+      else if (character === '\\') escaped = true;
+      else if (character === '"') inString = false;
+      continue;
+    }
+    if (character === '"' && depth > 0) {
+      inString = true;
+    } else if (character === '{') {
+      if (depth === 0) start = index;
+      depth += 1;
+    } else if (character === '}' && depth > 0) {
+      depth -= 1;
+      if (depth === 0 && start >= 0) {
+        candidates.push(trimmed.slice(start, index + 1));
+        start = -1;
+      }
+    }
+  }
+  if (depth !== 0 || candidates.length !== 1) {
     throw new AiProviderError({
       code: 'INVALID_JSON',
       providerKind,
-      message: 'Structured output contained non-JSON wrapper text.',
+      message: 'Structured output did not contain exactly one complete JSON object.',
     });
   }
   try {
-    return JSON.parse(trimmed) as unknown;
+    return JSON.parse(candidates[0]!) as unknown;
   } catch (error) {
     throw new AiProviderError({
       code: 'INVALID_JSON',
@@ -127,14 +154,14 @@ export function extractOpenAIResponsesText(body: unknown): string {
       message: 'OpenAI refused to process this request.',
     });
   }
-  if (texts.length !== 1) {
+  if (texts.length === 0) {
     throw new AiProviderError({
       code: 'CONTRACT_MISMATCH',
       providerKind: kind,
-      message: 'OpenAI returned an ambiguous number of structured outputs.',
+      message: 'OpenAI did not return a structured output.',
     });
   }
-  return structuredText(texts[0], kind, 'OpenAI Responses API');
+  return structuredText(texts.join(''), kind, 'OpenAI Responses API');
 }
 
 export function extractOpenAIChatText(
@@ -151,21 +178,44 @@ export function extractOpenAIChatText(
   }
   const choice = objectValue(root.choices[0], kind, 'Chat completion choice');
   const message = objectValue(choice.message, kind, 'Chat completion message');
-  if (typeof message.refusal === 'string' && message.refusal.length > 0) {
+  const refusal = message.refusal;
+  if (
+    refusal !== undefined &&
+    refusal !== null &&
+    refusal !== false &&
+    refusal !== ''
+  ) {
     throw new AiProviderError({
       code: 'REFUSAL',
       providerKind: kind,
       message: 'The chat provider refused to process this request.',
     });
   }
-  if (choice.finish_reason !== 'stop') {
+  if (choice.finish_reason === 'content_filter') {
     throw new AiProviderError({
-      code: choice.finish_reason === 'content_filter' ? 'REFUSAL' : 'INCOMPLETE',
+      code: 'REFUSAL',
       providerKind: kind,
-      message: 'The chat provider did not complete the structured response.',
+      message: 'The chat provider filtered this request.',
     });
   }
-  return structuredText(message.content, kind, 'Chat completion');
+  const chatText =
+    typeof message.content === 'string'
+      ? message.content
+      : Array.isArray(message.content)
+        ? message.content
+            .filter(
+              (part): part is JsonObject =>
+                typeof part === 'object' && part !== null && !Array.isArray(part),
+            )
+            .filter(
+              (part) =>
+                (part.type === 'text' || part.type === 'output_text') &&
+                typeof part.text === 'string',
+            )
+            .map((part) => part.text as string)
+            .join('')
+        : message.content;
+  return structuredText(chatText, kind, 'Chat completion');
 }
 
 export function extractGeminiInteractionsText(body: unknown): string {
@@ -213,14 +263,14 @@ export function extractGeminiInteractionsText(body: unknown): string {
       }
     }
   }
-  if (texts.length !== 1) {
+  if (texts.length === 0) {
     throw new AiProviderError({
       code: 'CONTRACT_MISMATCH',
       providerKind: kind,
-      message: 'Gemini returned an ambiguous number of structured outputs.',
+      message: 'Gemini did not return a structured output.',
     });
   }
-  return structuredText(texts[0], kind, 'Gemini Interactions API');
+  return structuredText(texts.join(''), kind, 'Gemini Interactions API');
 }
 
 export function extractAnthropicText(body: unknown): string {
@@ -247,12 +297,12 @@ export function extractAnthropicText(body: unknown): string {
     )
     .filter((item) => item.type === 'text' && typeof item.text === 'string')
     .map((item) => item.text as string);
-  if (texts.length !== 1) {
+  if (texts.length === 0) {
     throw new AiProviderError({
       code: 'CONTRACT_MISMATCH',
       providerKind: kind,
-      message: 'Anthropic returned an ambiguous number of structured outputs.',
+      message: 'Anthropic did not return a structured output.',
     });
   }
-  return structuredText(texts[0], kind, 'Anthropic Messages API');
+  return structuredText(texts.join(''), kind, 'Anthropic Messages API');
 }

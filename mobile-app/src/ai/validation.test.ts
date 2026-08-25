@@ -84,6 +84,19 @@ test('meal validator returns locally derived coverage and capped confidence', ()
   assert.ok(result.quality.nutrition_confidence < 0.6);
 });
 
+test('meal validator keeps a usable low-confidence estimate recordable', () => {
+  const meal = validMeal();
+  meal.quality.image_quality = 0.18;
+  meal.quality.identification_confidence = 0.2;
+  meal.quality.portion_confidence = 0.12;
+  meal.quality.nutrition_confidence = 0.1;
+  meal.quality.retake_recommended = true;
+
+  const result = validateMealAnalysis(meal, 'openai_responses');
+  assert.equal(result.status, 'ok');
+  assert.equal(result.quality.retake_recommended, true);
+});
+
 test('photo validator verifies the declared MIME signature', () => {
   const fakePng = Buffer.from([
     0xff, 0xd8, 0xff, 0xe0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,

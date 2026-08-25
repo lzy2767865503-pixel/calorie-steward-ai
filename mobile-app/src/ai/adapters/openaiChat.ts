@@ -10,6 +10,7 @@ import {
   buildReportSystemPrompt,
   buildReportUserPrompt,
 } from '../prompts';
+import { DIET_REPORT_JSON_SCHEMA, MEAL_ANALYSIS_JSON_SCHEMA } from '../schemas';
 import type {
   AiCallResult,
   AnalyzeMealRequest,
@@ -46,7 +47,11 @@ export class OpenAICompatibleChatAdapter extends BaseAiProviderAdapter {
         messages: [
           {
             role: 'system',
-            content: buildMealSystemPrompt(request.photo.locale),
+            content: [
+              buildMealSystemPrompt(request.photo.locale),
+              'Required JSON Schema for this compatible endpoint:',
+              JSON.stringify(MEAL_ANALYSIS_JSON_SCHEMA),
+            ].join('\n'),
           },
           {
             role: 'user',
@@ -106,7 +111,11 @@ export class OpenAICompatibleChatAdapter extends BaseAiProviderAdapter {
         messages: [
           {
             role: 'system',
-            content: buildReportSystemPrompt(context.locale),
+            content: [
+              buildReportSystemPrompt(context.locale),
+              'Required JSON Schema for this compatible endpoint:',
+              JSON.stringify(DIET_REPORT_JSON_SCHEMA),
+            ].join('\n'),
           },
           {
             role: 'user',

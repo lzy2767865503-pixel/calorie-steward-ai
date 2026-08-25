@@ -621,28 +621,10 @@ export function validateMealAnalysis(
         'ok requires an available energy estimate',
       );
     }
-    if (quality.retake_recommended) {
-      invalid(
-        providerKind,
-        'SEMANTIC_INVALID',
-        '$.quality.retake_recommended',
-        'status must be needs_retake when a retake is required',
-      );
-    }
-    if (
-      quality.image_quality < 0.35 ||
-      quality.identification_confidence < 0.35 ||
-      quality.portion_confidence < 0.25 ||
-      quality.nutrition_confidence < 0.25 ||
-      totals.energy_kcal.confidence < 0.25
-    ) {
-      invalid(
-        providerKind,
-        'SEMANTIC_INVALID',
-        '$.quality',
-        'ok is incompatible with low image, identification, portion, energy or nutrition confidence',
-      );
-    }
+    // A low-confidence visual estimate is still useful when it contains a
+    // positive calorie range and identifiable food components. Keep the
+    // confidence and retake recommendation visible instead of turning a
+    // usable result into a hard failure.
 
     const totalEnergy = totals.energy_kcal.value;
     for (const rule of [
