@@ -86,6 +86,19 @@ function textArray(value: unknown): string[] {
     .slice(0, 12);
 }
 
+function hasTextIdentity(value: unknown): boolean {
+  const object = objectOrEmpty(value);
+  const identity = first(object, [
+    'name',
+    'meal_name',
+    'mealName',
+    'food_name',
+    'food',
+    'label',
+  ]);
+  return typeof identity === 'string' && identity.trim().length > 0;
+}
+
 function localized(locale: string, chinese: string, english: string): string {
   return locale.trim().toLowerCase().startsWith('zh') ? chinese : english;
 }
@@ -142,7 +155,7 @@ function normalizeComponent(value: unknown, locale: string): MealComponentV1 {
       : 'inferred';
 
   return {
-    name: text(first(object, ['name', 'food_name', 'food', 'label']), localized(locale, '未命名食物', 'Unnamed food')),
+    name: text(first(object, ['name', 'meal_name', 'mealName', 'food_name', 'food', 'label']), localized(locale, '未命名食物', 'Unnamed food')),
     preparation: text(first(object, ['preparation', 'cooking_method', 'method']), 'unknown'),
     visibility,
     weight_g: normalizeEstimate(first(object, ['weight_g', 'weight', 'grams'])),
@@ -233,8 +246,9 @@ function normalizeMealStatus(value: unknown): MealAnalysisV1['status'] {
   ) {
     return 'unquantifiable';
   }
-  // An absent or unknown decision is never promoted to a recordable meal merely
-  // because the same response also contains component or calorie fields.
+  // Keep an absent or unknown decision unquantifiable here. The caller may
+  // promote it only after independently confirming both food identity and a
+  // usable bounded calorie estimate.
   return 'unquantifiable';
 }
 
@@ -247,10 +261,19 @@ export function normalizeMealAnalysisPayload(input: unknown, locale = 'zh-CN'): 
   if (Object.keys(root).length === 0) return input;
 
   const rawComponents = first(root, ['components', 'foods', 'items']);
-  const components = Array.isArray(rawComponents)
-    ? rawComponents.slice(0, 24).map((item) => normalizeComponent(item, locale))
-    : [];
-  const totals = normalizeTotals(first(root, ['totals', 'nutrition', 'nutrients']), components);
+  const rootHasFoodIdentity = hasTextIdentity(root);
+  const componentHasFoodIdentity =
+    Array.isArray(rawComponents) && rawComponents.some(hasTextIdentity);
+  const hasRecognizableFoodIdentity = rootHasFoodIdentity || componentHasFoodIdentity;
+  const flatFoodCandidate = rootHasFoodIdentity;
+  const componentInputs = Array.isArray(rawComponents)
+    ? rawComponents.slice(0, 24)
+    : flatFoodCandidate
+      ? [root]
+      : [];
+  const components = componentInputs.map((item) => normalizeComponent(item, locale));
+  const totalsSource = first(root, ['totals', 'nutrition', 'nutrients']) ?? root;
+  const totals = normalizeTotals(totalsSource, components);
   const qualityObject = objectOrEmpty(first(root, ['quality', 'confidence']));
   const availableTotals = Object.values(totals).filter((item) => item.available);
   const dataCoverage = availableTotals.length / Object.keys(totals).length;
@@ -273,7 +296,7 @@ export function normalizeMealAnalysisPayload(input: unknown, locale = 'zh-CN'): 
     imageQuality,
     identificationConfidence,
     portionConfidence,
-    meanNutrientConfidence || 0.4,
+    meanNutrientConfidence,
   );
   const retakeRecommended = affirmative(
     first(qualityObject, ['retake_recommended', 'needs_retake']),
@@ -281,13 +304,38 @@ export function normalizeMealAnalysisPayload(input: unknown, locale = 'zh-CN'): 
 
   const rawStatus = first(root, ['status', 'result_status']);
   let status = normalizeMealStatus(rawStatus);
+  const providerStatus = status;
   const explicitNotFood =
+    providerStatus === 'not_food' ||
     affirmative(first(root, ['not_food', 'no_food', 'is_not_food'])) ||
     negativeBoolean(first(root, ['is_food', 'food_detected', 'contains_food']));
+  const hasUsableCalorieEstimate =
+    hasRecognizableFoodIdentity &&
+    components.length > 0 &&
+    totals.energy_kcal.available &&
+    totals.energy_kcal.value > 0;
+  let bestEffortPromotion = false;
   if (explicitNotFood) status = 'not_food';
-  else if (retakeRecommended && status === 'ok') status = 'needs_retake';
-  if (status === 'ok' && (components.length === 0 || !totals.energy_kcal.available)) {
+  else if (hasUsableCalorieEstimate) {
+    bestEffortPromotion = providerStatus !== 'ok' || retakeRecommended;
+    status = 'ok';
+  } else if (retakeRecommended) {
+    status = 'needs_retake';
+  } else if (status === 'ok') {
     status = 'unquantifiable';
+  }
+
+  const uncertainties = textArray(
+    first(qualityObject, ['uncertainties', 'limitations', 'warnings']),
+  );
+  if (bestEffortPromotion) {
+    uncertainties.push(
+      localized(
+        locale,
+        '本次为低置信度视觉估算；App 已保留较宽范围，可直接记录或选择重拍。',
+        'This is a low-confidence visual estimate. The app kept a wider range; you can save it or retake the photo.',
+      ),
+    );
   }
 
   const normalized: MealAnalysisV1 = {
@@ -305,9 +353,9 @@ export function normalizeMealAnalysisPayload(input: unknown, locale = 'zh-CN'): 
       portion_confidence: portionConfidence,
       nutrition_confidence: nutritionConfidence,
       data_coverage: dataCoverage,
-      retake_recommended: status === 'needs_retake',
+      retake_recommended: status === 'needs_retake' || (status === 'ok' && retakeRecommended),
       assumptions: textArray(first(qualityObject, ['assumptions', 'assumption'])),
-      uncertainties: textArray(first(qualityObject, ['uncertainties', 'limitations', 'warnings'])),
+      uncertainties: uncertainties.slice(0, 12),
     },
   };
 

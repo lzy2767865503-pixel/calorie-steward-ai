@@ -9,7 +9,7 @@ const scriptDirectory = dirname(fileURLToPath(import.meta.url));
 const repositoryRoot = resolve(scriptDirectory, "..");
 const androidRoot = join(repositoryRoot, "mobile-app", "android");
 const releaseRoot = join(repositoryRoot, "release");
-const version = "1.2.2";
+const version = "1.2.3";
 const requestedEvidenceTime = process.env.RELEASE_EVIDENCE_UTC ?? new Date().toISOString();
 const parsedEvidenceTime = new Date(requestedEvidenceTime);
 if (Number.isNaN(parsedEvidenceTime.getTime())) {

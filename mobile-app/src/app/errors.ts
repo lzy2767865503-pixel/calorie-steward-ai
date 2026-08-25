@@ -14,7 +14,7 @@ const ERROR_MESSAGES: Record<string, readonly [string, string]> = {
   NETWORK_ERROR: ["无法安全连接 API，请检查网络和地址。", "A secure API connection could not be established. Check the network and URL."],
   TIMEOUT: ["API 在 60 秒内没有完成。", "The API did not finish within 60 seconds."],
   PROVIDER_UNAVAILABLE: ["AI 服务暂时不可用。", "The AI service is temporarily unavailable."],
-  INVALID_JSON: ["AI 没有返回纯净的结构化 JSON。", "The AI did not return valid structured JSON."],
+  INVALID_JSON: ["AI 没有返回唯一且完整的结构化 JSON。", "The AI did not return one complete structured JSON result."],
   SCHEMA_INVALID: ["AI 返回字段与 meal_analysis.v1 不匹配。", "The AI response does not match meal_analysis.v1."],
   SEMANTIC_INVALID: ["AI 返回的范围、热量或营养数值不自洽。", "The AI returned inconsistent ranges, calories, or nutrition values."],
   REFUSAL: ["AI 拒绝了这次请求。", "The AI refused this request."],

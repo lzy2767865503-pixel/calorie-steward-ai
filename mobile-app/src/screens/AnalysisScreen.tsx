@@ -48,7 +48,7 @@ export function AnalysisScreen({
         </View>
 
         {error ? (
-          <Notice title={t("AI 返回未通过校验", "AI response failed validation")} tone="danger">
+          <Notice title={t("这次暂时无法读取", "Could not use this response")} tone="danger">
             {error}
           </Notice>
         ) : (

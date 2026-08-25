@@ -199,6 +199,10 @@ test('OpenAI-compatible Chat sends vision with broadly supported JSON mode', asy
   assert.equal(mock.calls[0]!.url, 'https://provider.example/v1/chat/completions');
   const body = requestBody(mock.calls[0]!);
   const messages = body.messages as Array<Record<string, unknown>>;
+  assert.match(String(messages[0]!.content), /meal_analysis\.v1/);
+  assert.match(String(messages[0]!.content), /"components"/);
+  assert.match(String(messages[0]!.content), /"totals"/);
+  assert.match(String(messages[0]!.content), /"quality"/);
   const userContent = messages[1]!.content as Array<Record<string, unknown>>;
   const imageUrl = userContent[0]!.image_url as Record<string, unknown>;
   assert.equal(
@@ -296,7 +300,7 @@ test('public adapter constructors reject a mismatched provider kind', () => {
   );
 });
 
-test('a needs-retake model result is never returned as a recordable meal', async () => {
+test('a needs-retake result with usable food and calories becomes a best-effort meal', async () => {
   const needsRetake = validMeal();
   needsRetake.status = 'needs_retake';
   needsRetake.quality.retake_recommended = true;
@@ -320,15 +324,16 @@ test('a needs-retake model result is never returned as a recordable meal', async
     mock.fetchImpl,
   );
 
-  await assert.rejects(
-    adapter.analyzeMeal({
-      photo: photo(),
-      credentials: { secret: 'test-key' },
-    }),
-    (error: unknown) =>
-      error instanceof AiProviderError &&
-      error.code === 'NEEDS_RETAKE' &&
-      error.providerRequestId === 'req_retake',
+  const result = await adapter.analyzeMeal({
+    photo: photo(),
+    credentials: { secret: 'test-key' },
+  });
+  assert.equal(result.data.status, 'ok');
+  assert.equal(result.data.quality.retake_recommended, true);
+  assert.ok(
+    result.data.quality.uncertainties.some((item) =>
+      item.includes('低置信度视觉估算'),
+    ),
   );
   const connection = await adapter.testConnection({
     photo: photo(),
