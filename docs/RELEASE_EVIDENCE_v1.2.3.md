@@ -4,6 +4,8 @@
 **Developer / 开发者：LAI ZEYU 来泽宇**  
 **Evidence time / 证据时间：2026-08-25T18:40:38Z**
 
+**Public verification time / 公网验证时间：2026-08-25T18:57:38Z**
+
 ## Candidate artifact / 候选产物
 
 | Item | Verified value |
@@ -46,4 +48,8 @@ The local vision run uses an authenticated Codex local proxy and is not acceptan
 
 ## Public state / 公网状态
 
-GitHub Release assets and the Kawan Campus Build 7 manifest are intentionally marked pending until the signed APK and checksum are published, downloaded again, and verified. The public manifest must be advanced last so Build 6 users are never gated to a missing asset.
+- [GitHub Release v1.2.3](https://github.com/lzy2767865503-pixel/calorie-steward-ai/releases/tag/v1.2.3) is public, non-draft, and non-prerelease. All eight assets report uploaded state and expected server-side digests.
+- Both the immutable versioned APK and the stable `releases/latest/download/calorie-steward-android-enterprise.apk` alias were anonymously downloaded again; each produced SHA-256 `4598d47d26a44bb1e31272cca12054b2b8e504d6d94c8fdbfc7b71886e729450`. Both public checksum files contain the same digest.
+- The [Kawan Campus release manifest](https://kawancampus.com/downloads/calorie-steward-android-release.json) is live at v1.2.3 / Build 7 / minimum supported Build 7, with the immutable GitHub asset, checksum URL, and exact APK digest. The Cloudflare deployment sends 100% of traffic to version `b767fad2-6c97-41d8-9fe5-7fa5ea223267`; GET and HEAD returned JSON, CORS, bounded revalidation, ETag, `nosniff`, and cross-origin resource headers.
+- Kawan Campus desktop and 390 x 844 mobile rendering both show the independent Calorie Steward v1.2.3 entry and stable latest-download URL. English/Chinese switching worked, the mobile card stayed inside the viewport, and no page console warnings/errors were observed.
+- On Android API 24, a clean v1.2.2 / Build 6 install showed the required Build 7 gate after cold start and again after returning to the foreground. A same-signed `adb install -r` upgrade to v1.2.3 retained `firstInstallTime`, removed the gate, and launched the main app without an observed app FATAL/ANR.
