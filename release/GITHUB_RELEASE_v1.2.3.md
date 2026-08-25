@@ -36,6 +36,16 @@ Explicit non-food, calories without a food identity, missing calories, negative 
 - APK SHA-256：`4598d47d26a44bb1e31272cca12054b2b8e504d6d94c8fdbfc7b71886e729450`
 - 签名：单一 RSA-3072 signer，证书与 v1.2.2 相同，APK Signature Scheme v2
 
+### 持续更新已上线 / Live update channel
+
+- Kawan Campus 已发布 v1.2.3 / Build 7 清单，并将最低支持版本推进到 Build 7。
+- v1.2.2 / Build 6 在冷启动和回到前台时都会显示必须更新；同签名覆盖安装 v1.2.3 后门禁自动解除。
+- Kawan Campus 桌面与手机版均显示独立的 v1.2.3 下载入口，永久 latest 链接与版本化 APK 的公网下载哈希一致。
+
+- The Kawan Campus manifest is live at v1.2.3 / Build 7 with minimum supported Build 7.
+- v1.2.2 / Build 6 shows the required-update gate after cold start and foreground return; a same-signed v1.2.3 overlay clears it.
+- Kawan Campus desktop and mobile surfaces show the independent v1.2.3 download entry. The stable latest URL and immutable versioned APK produced the same public-download digest.
+
 本地 Codex 视觉回归是真实推理但不是付费 Provider、企业网关或临床准确率验收。卡路里结果仍是估算范围，不是实验室检测或医疗建议。
 
 The local Codex vision regression used real inference, but it is not paid-provider, enterprise-gateway, or clinical-accuracy acceptance. Calorie results remain estimates, not laboratory measurements or medical advice.
