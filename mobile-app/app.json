@@ -29,7 +29,8 @@
           "faceIDPermission": "Allow Calorie Steward to use Face ID to protect API credentials."
         }
       ],
-      "expo-sharing"
+      "expo-sharing",
+      "expo-sqlite"
     ],
     "ios": {
       "supportsTablet": true,

@@ -20,6 +20,8 @@ FastAPI 原型负责接收一张餐食图片、调用可注入的视觉识别边
 
 ## 本地运行
 
+需要 Python 3.10 或更高版本。
+
 食品库默认读取 Android 同一份只读资产：
 
 `../android-app/app/src/main/assets/databases/clinical_clarity_foods.sqlite`

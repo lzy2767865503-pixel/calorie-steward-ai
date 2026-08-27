@@ -2,6 +2,7 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import { useEffect, useState } from "react";
 import {
   KeyboardAvoidingView,
+  Linking,
   Platform,
   Pressable,
   ScrollView,
@@ -38,6 +39,10 @@ export function SettingsScreen({
   enterpriseWorkspace,
   profile,
   retainPhotos,
+  photoRetentionAvailable = true,
+  credentialStoreLabel = "SecureStore",
+  privacyUrl,
+  supportUrl,
   savingProfile,
   languagePreference,
   onEditApi,
@@ -57,6 +62,10 @@ export function SettingsScreen({
   enterpriseWorkspace?: EnterpriseWorkspace | null;
   profile: ProfileDraft;
   retainPhotos: boolean;
+  photoRetentionAvailable?: boolean;
+  credentialStoreLabel?: string;
+  privacyUrl?: string | undefined;
+  supportUrl?: string | undefined;
   savingProfile?: boolean;
   languagePreference: LanguagePreference;
   onEditApi: () => void;
@@ -149,7 +158,7 @@ export function SettingsScreen({
             </View>
             <View style={styles.secretRow}>
               <Ionicons name="key-outline" size={18} color={colors.muted} />
-              <Text style={styles.secretText}>{secretHint ? t(`凭据 ${secretHint} · 仅 SecureStore`, `Credential ${secretHint} · SecureStore only`) : t("未找到凭据", "No credential found")}</Text>
+              <Text style={styles.secretText}>{secretHint ? t(`凭据 ${secretHint} · 仅 ${credentialStoreLabel}`, `Credential ${secretHint} · ${credentialStoreLabel} only`) : t("未找到凭据", "No credential found")}</Text>
             </View>
             <View style={styles.inlineActions}>
               <View style={styles.flexButton}>
@@ -278,7 +287,9 @@ export function SettingsScreen({
               <View style={styles.settingCopy}>
                 <Text style={styles.settingTitle}>{t("保留重编码后的餐食照片", "Retain re-encoded meal photos")}</Text>
                 <Text style={styles.settingBody}>
-                  {enterpriseWorkspace
+                  {!photoRetentionAvailable
+                    ? t("Windows 版本强制关闭：分析用 JPEG 只在内存中短暂停留，保存结构化记录后即释放。", "Forced off on Windows: the analysis JPEG stays briefly in memory and is released after the structured record is saved.")
+                    : enterpriseWorkspace
                     ? t("企业托管模式强制关闭；只保留结构化记录。", "Forced off in enterprise-managed mode; only structured records are retained.")
                     : t("默认关闭。取消、重拍或保存记录时会清理分析用 JPEG；删除失败会在下次启动重试。开启后，餐食记录只保留一份同样重编码的 JPEG。", "Off by default. The analysis JPEG is cleaned on cancel, retake, or save; failed deletion is retried on the next launch. When enabled, a meal record retains one copy of the same re-encoded JPEG.")}
                 </Text>
@@ -287,7 +298,7 @@ export function SettingsScreen({
                 accessibilityLabel={t("保留重编码后的餐食照片", "Retain re-encoded meal photos")}
                 value={retainPhotos}
                 onValueChange={onRetainPhotosChange}
-                disabled={Boolean(enterpriseWorkspace)}
+                disabled={!photoRetentionAvailable || Boolean(enterpriseWorkspace)}
                 trackColor={{ false: "#BCC6D2", true: colors.tealBright }}
                 thumbColor={colors.white}
               />
@@ -296,7 +307,7 @@ export function SettingsScreen({
               <PrimaryButton label={t("导出完整记录 JSON", "Export complete JSON record")} icon="download-outline" variant="secondary" onPress={onExport} />
               <PrimaryButton label={t("删除全部饮食数据", "Delete all diet data")} icon="trash-outline" variant="danger" onPress={onDeleteAllData} />
             </View>
-            <Text style={styles.exportNote}>{t("API Key、任何餐食照片、本机照片路径、企业网关和组织策略都不会进入饮食导出 JSON。卸载 App 会删除该手机上的本地记录，请定期导出备份。", "API keys, meal photos, local photo paths, enterprise gateways, and organization policies are excluded from the diet JSON export. Uninstalling deletes local records from this phone, so export backups regularly.")}</Text>
+            <Text style={styles.exportNote}>{t("API Key、任何餐食照片、本机照片路径、企业网关和组织策略都不会进入饮食导出 JSON。卸载 App 会删除此设备上的本地记录，请定期导出备份。", "API keys, meal photos, local photo paths, enterprise gateways, and organization policies are excluded from the diet JSON export. Uninstalling deletes local records from this device, so export backups regularly.")}</Text>
           </Card>
 
           <Card>
@@ -317,6 +328,27 @@ export function SettingsScreen({
             <Text style={styles.cardTitle}>{t("卡路里管家 v1.2.3", "Calorie Steward v1.2.3")}</Text>
             <Text style={styles.developerAttribution}>{officialAttribution(language)}</Text>
             <Text style={styles.cardBody}>{t("这是官方版本的作者署名。官方构建门禁会在署名意外缺失时失败；由于项目开源，第三方 fork 仍可依法修改源代码和界面。", "This is the official build attribution. The official build gate fails if it is accidentally removed. Because the project is open source, third-party forks can still lawfully modify the source and interface.")}</Text>
+            <Text style={styles.cardBody}>{t("应用源代码采用 Apache License 2.0；LICENSE、NOTICE 与第三方声明随 Windows 安装包一起提供。", "The application source is licensed under Apache License 2.0. LICENSE, NOTICE, and third-party notices are included with the Windows package.")}</Text>
+            {privacyUrl || supportUrl ? (
+              <View style={styles.dataActions}>
+                {privacyUrl ? (
+                  <PrimaryButton
+                    label={t("Windows 隐私政策", "Windows privacy policy")}
+                    icon="shield-checkmark-outline"
+                    variant="secondary"
+                    onPress={() => void Linking.openURL(privacyUrl)}
+                  />
+                ) : null}
+                {supportUrl ? (
+                  <PrimaryButton
+                    label={t("支持与问题反馈", "Support and issue reporting")}
+                    icon="help-circle-outline"
+                    variant="secondary"
+                    onPress={() => void Linking.openURL(supportUrl)}
+                  />
+                ) : null}
+              </View>
+            ) : null}
           </Card>
 
           <Notice title={t("不是医疗诊断", "Not a medical diagnosis")} tone="info">
