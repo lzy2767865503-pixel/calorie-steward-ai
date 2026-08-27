@@ -58,14 +58,21 @@ signed through an exclusive temporary `.dll` copy because CodeSignTool's
 documented extension allowlist does not include `.node`; the exact signed bytes
 are copied back and the temporary file is deleted. The workflow runs the same
 signed ZIP through two process-bound UI rounds, creates a private draft,
-downloads and hashes every remote asset, removes signing state, rechecks the
-remote tag commit, and only then publishes.
+removes signing state, and transfers only the four hash-bound public assets to
+an isolated publisher job. That publisher never checks out or executes repository
+source: it has the only `contents: write` token, accepts ownership only from an
+unambiguous HTTP 201 response carrying a numeric Release ID and the exact per-run
+marker, downloads and
+hashes every remote asset, rechecks the tag against the exact current protected
+`main` commit, and only then publishes. Any ambiguous failure can roll back only
+that owned numeric Release ID to a private draft; an ambiguous create response
+never authorizes editing a remotely discovered Release.
 Missing credentials, wrong identity, unsigned nested binaries, an untrusted
 chain, a missing timestamp, or a third-party signer all fail closed.
 
 ## Exact Store package sideload gate
 
-Partner Center has reserved Store ID `9PBQ8LD3VKTS` and Identity `LAIZEYU.CalorieStewardbyLAIZEYU`; repository variables provide that exact identity and the account's technical publisher, and the scripts hard-lock both. A manually approved workflow from the owner's `main` branch on a dedicated self-hosted, active-desktop, elevated Windows runner builds one unsigned Store AppX. It then performs two sequential clean passes on those identical source bytes. Each pass unpacks and checks the manifest, creates an ephemeral same-publisher test certificate, signs only a temporary copy, runs bounded strict WACK `reset`/`test`, requires the report root to prove `LATEST_VERSION=TRUE` and `PARTIAL_RUN=FALSE`, binds exactly one PASS/NOT-APPLICABLE result to every uniquely identified test, installs and launches it, verifies the exact installed executable plus PID/hash-bound UI/author marker and listener, uninstalls it, and removes and rechecks the certificate. The canonical summary rejects any source commit, AppX hash, executable hash, or identity difference between Pass A and Pass B. The original unsigned Partner Center candidate and raw evidence stay private inside the runner and are deleted after the summary is written. Secure transfer to Partner Center is a separate controlled step.
+Partner Center has reserved Store ID `9PBQ8LD3VKTS` and Identity `LAIZEYU.CalorieStewardbyLAIZEYU`; repository variables provide that exact identity and the account's technical publisher, and the scripts hard-lock both. A manually approved workflow from the owner's protected `main` branch targets an organization runner group restricted to that workflow and a disposable, active-desktop, elevated Windows 11 runner. The current user-owned repository cannot provision that runner group and therefore remains fail-closed until the same repository is transferred into an organization and the external runner infrastructure is created. The gate builds one unsigned Store AppX, creates one non-exportable ephemeral same-publisher certificate, and signs exactly one private sideload copy. Pass A and Pass B both consume those frozen signed bytes and the same certificate; each pass independently unpacks and checks the original manifest, runs bounded strict WACK `reset`/`test`, requires the report root to prove `LATEST_VERSION=TRUE` and `PARTIAL_RUN=FALSE`, binds exactly one PASS/NOT-APPLICABLE result to every uniquely identified test, installs and launches the signed copy, verifies the exact installed executable plus PID/hash-bound UI/author marker and listener, and uninstalls it. The canonical summary rejects any source commit, unsigned AppX hash, signed AppX hash, temporary-certificate thumbprint, executable hash, or identity difference between Pass A and Pass B. Only after both scheduled passes does an `always()` cleanup remove and recheck the exact certificate, CNG private key, frozen signed AppX, original candidate, and raw evidence. None of those private bytes are uploaded. Secure transfer to Partner Center is a separate controlled step.
 
 ## Interactive Windows release blockers
 

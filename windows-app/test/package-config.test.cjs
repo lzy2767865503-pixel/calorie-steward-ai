@@ -134,6 +134,28 @@ test("public Windows workflows never upload unsigned binaries and require LAI ZE
   assert.match(qaWorkflow, /windows-lifecycle\.ps1[\s\S]*-Round 1/);
   assert.match(qaWorkflow, /windows-lifecycle\.ps1[\s\S]*-Round 2/);
   assert.match(qaWorkflow, /windows-store-lifecycle\.ps1/);
+  assert.equal(
+    (qaWorkflow.match(/prepare-store-test-candidate\.ps1/g) ?? []).length,
+    1,
+    "Store QA must create and sign exactly one private candidate before both rounds",
+  );
+  assert.equal(
+    (qaWorkflow.match(/cleanup-store-test-candidate\.ps1/g) ?? []).length,
+    1,
+    "Store QA must clean its one signing state exactly once after both rounds",
+  );
+  assert.equal(
+    (qaWorkflow.match(/-SigningStatePath \$env:CALORIE_STORE_SIGNING_STATE/g) ?? []).length,
+    2,
+    "both WACK rounds must consume the exact same frozen signed AppX",
+  );
+  assert.match(qaWorkflow, /group: trusted-windows-interactive-calorie-store/);
+  assert.match(qaWorkflow, /- ephemeral\n\s+- windows-11-24h2/);
+  assert.match(qaWorkflow, /signedAppxSha256 -cne \$Second\.signedAppxSha256/);
+  assert.match(
+    qaWorkflow,
+    /temporaryCertificateThumbprint -cne \$Second\.temporaryCertificateThumbprint/,
+  );
   for (const uploadBlock of qaWorkflow.split(/uses: actions\/upload-artifact@/).slice(1)) {
     const step = uploadBlock.split(/\n\s+- name:/, 1)[0];
     assert.doesNotMatch(step, /\*\.(?:exe|dll|zip|appx|msix|pfx|p12|cer|key)/i);
@@ -146,7 +168,7 @@ test("public Windows workflows never upload unsigned binaries and require LAI ZE
   assert.match(releaseWorkflow, /SSL_ESIGNER_CREDENTIAL_ID/);
   assert.match(
     releaseWorkflow,
-    /github\.ref == 'refs\/heads\/main'.*github\.actor == 'lzy2767865503-pixel'/,
+    /github\.ref == 'refs\/heads\/main'[\s\S]*github\.actor == 'lzy2767865503-pixel'/,
   );
   assert.match(releaseWorkflow, /CALORIE_TRUSTED_GITHUB_BUILD: '1'/);
   assert.match(releaseWorkflow, /f14b1e1ef14bfa1fd00279c363aab0debbf5dcfba0e4bcdce5d22bb771de0e3a/);
@@ -155,13 +177,67 @@ test("public Windows workflows never upload unsigned binaries and require LAI ZE
   assert.match(releaseWorkflow, /-PortableOnly/g);
   assert.match(releaseWorkflow, /build:github-portable/);
   assert.match(releaseWorkflow, /no NSIS installer/i);
-  assert.match(releaseWorkflow, /gh release create/);
-  assert.doesNotMatch(releaseWorkflow, /actions\/upload-artifact@/);
+  const [signedReleaseJob, isolatedPublisher] = releaseWorkflow.split(/\n  publish-release:/);
+  assert.ok(isolatedPublisher, "release workflow must have an isolated publisher job");
+  assert.match(releaseWorkflow, /permissions:\n  contents: read/);
+  assert.doesNotMatch(signedReleaseJob, /contents: write/);
+  assert.match(signedReleaseJob, /actions\/upload-artifact@/);
+  assert.match(isolatedPublisher, /contents: write/);
+  assert.match(isolatedPublisher, /actions\/download-artifact@/);
+  assert.doesNotMatch(isolatedPublisher, /actions\/checkout@/);
+  assert.match(isolatedPublisher, /RELEASE_OWNERSHIP_MARKER/);
+  assert.match(isolatedPublisher, /releases\/\$ReleaseId/);
+  assert.match(isolatedPublisher, /uploads\.github\.com[\s\S]*releases\/\$ReleaseId\/assets/);
+  assert.match(isolatedPublisher, /Get-ReleaseByTagOrNull/);
+  assert.match(isolatedPublisher, /Get-ReleaseByIdOrNull/);
+  assert.match(isolatedPublisher, /Assert-OwnedRelease/);
+  assert.match(isolatedPublisher, /created_at/);
+  assert.match(isolatedPublisher, /sha256:/);
+  assert.match(isolatedPublisher, /Restore-OwnedReleaseToDraft/);
+  assert.match(isolatedPublisher, /exact current protected main commit/);
+  assert.match(isolatedPublisher, /failed before exact ownership was established; no remote Release was edited/);
+  assert.doesNotMatch(isolatedPublisher, /\$Created\s*=\s*\$PossibleOwned/);
+  assert.match(isolatedPublisher, /observed Release ID \$ObservedId is not owned and will not be edited/);
+  assert.doesNotMatch(releaseWorkflow, /gh release (?:create|edit|upload|download)/);
   assert.doesNotMatch(qaWorkflow, /actions\/upload-artifact@/);
   assert.match(
     qaWorkflow,
     /github\.ref == 'refs\/heads\/main'[\s\S]*github\.actor == 'lzy2767865503-pixel'[\s\S]*inputs\.build_store_package/,
   );
+
+  const storeLifecycle = fs.readFileSync(
+    path.join(projectRoot, "scripts", "windows-store-lifecycle.ps1"),
+    "utf8",
+  );
+  const prepareStoreCandidate = fs.readFileSync(
+    path.join(projectRoot, "scripts", "prepare-store-test-candidate.ps1"),
+    "utf8",
+  );
+  const cleanupStoreCandidate = fs.readFileSync(
+    path.join(projectRoot, "scripts", "cleanup-store-test-candidate.ps1"),
+    "utf8",
+  );
+  const trustedWindowsSdkTool = fs.readFileSync(
+    path.join(projectRoot, "scripts", "trusted-windows-sdk-tool.ps1"),
+    "utf8",
+  );
+  assert.doesNotMatch(storeLifecycle, /New-SelfSignedCertificate|signtool\.exe/);
+  assert.match(storeLifecycle, /\[string\]\$SigningStatePath/);
+  assert.match(storeLifecycle, /signedAppxSha256 = \$ExpectedSignedHash/);
+  assert.match(storeLifecycle, /Assert-FrozenSigningCandidate/g);
+  assert.equal(
+    (prepareStoreCandidate.match(/New-SelfSignedCertificate/g) ?? []).length,
+    1,
+  );
+  assert.equal((prepareStoreCandidate.match(/ sign \/sha1 /g) ?? []).length, 1);
+  assert.match(prepareStoreCandidate, /KeyExportPolicy NonExportable/);
+  assert.match(cleanupStoreCandidate, /Remove-Item[^\n]*-DeleteKey/);
+  assert.match(cleanupStoreCandidate, /CngKey\]::Open/);
+  assert.match(cleanupStoreCandidate, /ReparsePoint/);
+  assert.match(trustedWindowsSdkTool, /versioned Windows SDK x64 directory/);
+  assert.match(trustedWindowsSdkTool, /Microsoft Corporation/);
+  assert.match(trustedWindowsSdkTool, /X509RevocationMode\]::Online/);
+  assert.match(trustedWindowsSdkTool, /TimeStamperCertificate/);
 
   const lifecycle = fs.readFileSync(
     path.join(projectRoot, "scripts", "windows-lifecycle.ps1"),

@@ -6,6 +6,8 @@ param(
   [Parameter(Mandatory = $true)]
   [string]$Publisher,
   [Parameter(Mandatory = $true)]
+  [string]$SigningStatePath,
+  [Parameter(Mandatory = $true)]
   [string]$EvidenceDirectory,
   [Parameter(Mandatory = $true)]
   [ValidateRange(1, 2)]
@@ -17,6 +19,7 @@ Set-StrictMode -Version Latest
 $PSNativeCommandUseErrorActionPreference = $true
 
 if (-not $IsWindows) { throw "windows-store-lifecycle.ps1 must run on Windows." }
+. (Join-Path $PSScriptRoot 'trusted-windows-sdk-tool.ps1')
 $ExpectedIdentityName = 'LAIZEYU.CalorieStewardbyLAIZEYU'
 if ($IdentityName -cne $ExpectedIdentityName) {
   throw "IdentityName must exactly match the reserved Calorie Steward Partner Center identity."
@@ -40,6 +43,56 @@ if (Test-Path -LiteralPath $EvidenceDirectory) {
 New-Item -ItemType Directory -Path $EvidenceDirectory | Out-Null
 $EvidenceRoot = (Resolve-Path -LiteralPath $EvidenceDirectory).Path
 $OriginalHashBefore = (Get-FileHash -LiteralPath $OriginalAppx -Algorithm SHA256).Hash.ToLowerInvariant()
+$SigningStateFile = (Resolve-Path -LiteralPath $SigningStatePath).Path
+$SigningStateRoot = [IO.Path]::GetFullPath((Split-Path -Parent $SigningStateFile)).TrimEnd('\')
+$RunnerTemp = [IO.Path]::GetFullPath($env:RUNNER_TEMP).TrimEnd('\')
+$SigningStateParent = [IO.Directory]::GetParent($SigningStateRoot).FullName.TrimEnd('\')
+if ((Split-Path -Leaf $SigningStateFile) -cne 'state.json' -or
+    -not [string]::Equals($SigningStateParent, $RunnerTemp, [StringComparison]::OrdinalIgnoreCase) -or
+    (Split-Path -Leaf $SigningStateRoot) -notlike 'calorie-store-signing-*') {
+  throw 'SigningStatePath must be state.json in a direct calorie-store-signing-* child of RUNNER_TEMP.'
+}
+$SigningStateReparseItems = @(
+  Get-Item -LiteralPath $SigningStateRoot -Force
+  Get-ChildItem -LiteralPath $SigningStateRoot -Recurse -Force
+) | Where-Object { ($_.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0 }
+if ($SigningStateReparseItems.Count -gt 0) {
+  throw 'Store QA signing state contains a reparse point.'
+}
+$SigningState = Get-Content -LiteralPath $SigningStateFile -Raw | ConvertFrom-Json
+$ExpectedSigningStateProperties = @(
+  'certificateKeyName', 'certificateKeyProvider', 'certificateThumbprint', 'publisher',
+  'schemaVersion', 'signedAppxPath', 'signedAppxSha256', 'signToolFileVersion',
+  'signToolSha256', 'sourceAppxPath', 'sourceAppxSha256'
+) | Sort-Object
+$ActualSigningStateProperties = @($SigningState.PSObject.Properties.Name) | Sort-Object
+if ((Compare-Object $ExpectedSigningStateProperties $ActualSigningStateProperties) -or
+    [int]$SigningState.schemaVersion -ne 2 -or
+    [string]$SigningState.publisher -cne $Publisher -or
+    [string]$SigningState.sourceAppxSha256 -cne $OriginalHashBefore -or
+    [string]$SigningState.signedAppxSha256 -cnotmatch '^[0-9a-f]{64}$' -or
+    [string]$SigningState.signToolSha256 -cnotmatch '^[0-9a-f]{64}$' -or
+    [string]::IsNullOrWhiteSpace([string]$SigningState.signToolFileVersion) -or
+    [string]$SigningState.certificateThumbprint -cnotmatch '^[0-9A-F]{40,64}$' -or
+    [string]$SigningState.certificateKeyName -notmatch '^[A-Za-z0-9{}._-]+$' -or
+    [string]::IsNullOrWhiteSpace([string]$SigningState.certificateKeyProvider)) {
+  throw 'Store QA signing state schema or ownership fields are invalid.'
+}
+$StateSourceAppx = [IO.Path]::GetFullPath([string]$SigningState.sourceAppxPath)
+if (-not [string]::Equals($StateSourceAppx, $OriginalAppx, [StringComparison]::OrdinalIgnoreCase)) {
+  throw 'Store QA signing state is bound to a different unsigned source AppX.'
+}
+$SignedCopy = [IO.Path]::GetFullPath([string]$SigningState.signedAppxPath)
+if (-not [string]::Equals((Split-Path -Parent $SignedCopy), $SigningStateRoot, [StringComparison]::OrdinalIgnoreCase) -or
+    (Split-Path -Leaf $SignedCopy) -cne 'sideload-test.appx' -or
+    -not (Test-Path -LiteralPath $SignedCopy -PathType Leaf)) {
+  throw 'Store QA signed AppX escaped or is missing from its exact signing state root.'
+}
+$ExpectedSignedHash = [string]$SigningState.signedAppxSha256
+$CertificateThumbprint = [string]$SigningState.certificateThumbprint
+$SignToolHash = [string]$SigningState.signToolSha256
+$SignToolVersion = [string]$SigningState.signToolFileVersion
+$SigningStateFileHash = (Get-FileHash -LiteralPath $SigningStateFile -Algorithm SHA256).Hash.ToLowerInvariant()
 $SourceCommit = (& git rev-parse HEAD).Trim()
 if ($LASTEXITCODE -ne 0 -or $SourceCommit -notmatch '^[a-f0-9]{40}$') { throw "Source commit could not be resolved." }
 
@@ -62,13 +115,15 @@ if ($ExistingPackages.Count -gt 0 -or $ExistingFamilyRoots.Count -gt 0 -or
   throw "Refusing to replace or later clean a preexisting package, PFN data root, process, or loopback listener."
 }
 foreach ($StorePath in @('Cert:\CurrentUser\My', 'Cert:\CurrentUser\TrustedPeople')) {
-  $ExistingPublisherCertificates = @(
+  $SigningCertificates = @(
     Get-ChildItem -LiteralPath $StorePath -ErrorAction SilentlyContinue | Where-Object {
       $_.Subject -ceq $Publisher
     }
   )
-  if ($ExistingPublisherCertificates.Count -gt 0) {
-    throw "Clean WACK account required: a certificate for the Partner Center publisher already exists in $StorePath."
+  if ($SigningCertificates.Count -ne 1 -or
+      $SigningCertificates[0].Thumbprint -cne $CertificateThumbprint -or
+      ($StorePath -ceq 'Cert:\CurrentUser\My' -and -not $SigningCertificates[0].HasPrivateKey)) {
+    throw "Store QA certificate is missing, ambiguous, or differs from the frozen signing state in $StorePath."
   }
 }
 $StoreRunStartedUtc = [DateTimeOffset]::UtcNow
@@ -94,16 +149,15 @@ if (-not $CurrentPrincipal.IsInRole([Security.Principal.WindowsBuiltInRole]::Adm
   throw "WACK runner must be elevated Administrator in the active desktop session."
 }
 
-$WindowsKits = Join-Path ${env:ProgramFiles(x86)} 'Windows Kits\10'
-$MakeAppx = Get-ChildItem (Join-Path $WindowsKits 'bin') -Recurse -File -Filter makeappx.exe |
-  Where-Object { $_.FullName -like '*\x64\makeappx.exe' } |
-  Sort-Object FullName -Descending | Select-Object -First 1
-$SignTool = Get-ChildItem (Join-Path $WindowsKits 'bin') -Recurse -File -Filter signtool.exe |
-  Where-Object { $_.FullName -like '*\x64\signtool.exe' } |
-  Sort-Object FullName -Descending | Select-Object -First 1
-$AppCert = Join-Path $WindowsKits 'App Certification Kit\appcert.exe'
-if (-not $MakeAppx -or -not $SignTool -or -not (Test-Path -LiteralPath $AppCert -PathType Leaf)) {
-  throw "Windows SDK packaging tools or Windows App Certification Kit are missing."
+$MakeAppx = Get-TrustedWindowsSdkTool -Name 'makeappx.exe'
+$AppCertItem = Get-TrustedWindowsAppCertificationKit
+$AppCert = $AppCertItem.FullName
+$MakeAppxHash = (Get-FileHash -LiteralPath $MakeAppx.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
+$AppCertHash = (Get-FileHash -LiteralPath $AppCert -Algorithm SHA256).Hash.ToLowerInvariant()
+$MakeAppxVersion = [string]$MakeAppx.VersionInfo.FileVersion
+$AppCertVersion = [string]$AppCertItem.VersionInfo.FileVersion
+if ([string]::IsNullOrWhiteSpace($MakeAppxVersion) -or [string]::IsNullOrWhiteSpace($AppCertVersion)) {
+  throw 'Trusted Windows SDK/WACK tools must expose file versions.'
 }
 
 function Invoke-BoundedNativeProcess {
@@ -187,6 +241,40 @@ function Test-TreeHasReparsePoint {
       ($_.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0
     }
   ).Count -gt 0
+}
+
+function Assert-FrozenSigningCandidate {
+  if (Test-TreeHasReparsePoint -Root $SigningStateRoot) {
+    throw 'Store QA signing state gained a reparse point.'
+  }
+  if (-not (Test-Path -LiteralPath $SigningStateFile -PathType Leaf) -or
+      (Get-FileHash -LiteralPath $SigningStateFile -Algorithm SHA256).Hash.ToLowerInvariant() -cne
+        $SigningStateFileHash) {
+    throw 'Frozen Store QA signing state changed during validation.'
+  }
+  if (-not (Test-Path -LiteralPath $SignedCopy -PathType Leaf) -or
+      (Get-FileHash -LiteralPath $SignedCopy -Algorithm SHA256).Hash.ToLowerInvariant() -cne
+        $ExpectedSignedHash) {
+    throw 'Frozen Store QA signed AppX changed during validation.'
+  }
+  $TemporarySignature = Get-AuthenticodeSignature -LiteralPath $SignedCopy
+  if ($TemporarySignature.Status -ne [Management.Automation.SignatureStatus]::Valid -or
+      -not $TemporarySignature.SignerCertificate -or
+      $TemporarySignature.SignerCertificate.Thumbprint -cne $CertificateThumbprint -or
+      $TemporarySignature.SignerCertificate.Subject -cne $Publisher) {
+    throw 'Frozen Store QA AppX signature differs from the one-time temporary certificate.'
+  }
+  foreach ($StorePath in @('Cert:\CurrentUser\My', 'Cert:\CurrentUser\TrustedPeople')) {
+    $Matches = @(
+      Get-ChildItem -LiteralPath $StorePath -ErrorAction SilentlyContinue | Where-Object {
+        $_.Subject -ceq $Publisher
+      }
+    )
+    if ($Matches.Count -ne 1 -or $Matches[0].Thumbprint -cne $CertificateThumbprint -or
+        ($StorePath -ceq 'Cert:\CurrentUser\My' -and -not $Matches[0].HasPrivateKey)) {
+      throw "One-time Store QA certificate changed or became ambiguous in $StorePath."
+    }
+  }
 }
 
 function Register-ExactAppCertInstallLocation {
@@ -392,11 +480,6 @@ function Assert-WackXmlPass {
 
 $WorkRoot = Join-Path $env:RUNNER_TEMP "calorie-store-$([Guid]::NewGuid().ToString('N'))"
 $UnpackedRoot = Join-Path $WorkRoot 'unpacked'
-$SignedCopy = Join-Path $WorkRoot 'sideload-test.appx'
-$CerPath = Join-Path $WorkRoot 'sideload-test.cer'
-$Certificate = $null
-$CertificateKeyName = $null
-$CertificateKeyProvider = $null
 $InstalledPackage = $null
 $PackageMutationAttempted = $false
 $CreatedPackageFullNames = [Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase)
@@ -469,37 +552,7 @@ try {
   }
   $StoreExeHash = (Get-FileHash -LiteralPath $StoreExe -Algorithm SHA256).Hash.ToLowerInvariant()
 
-  $Certificate = New-SelfSignedCertificate -Type Custom -Subject $Publisher `
-    -KeyUsage DigitalSignature -FriendlyName 'Calorie Steward CI sideload only' `
-    -CertStoreLocation 'Cert:\CurrentUser\My' `
-    -TextExtension @('2.5.29.37={text}1.3.6.1.5.5.7.3.3')
-  if ($Certificate.Subject -cne $Publisher -or $Certificate.Issuer -cne $Publisher) {
-    throw "Temporary certificate subject mismatch."
-  }
-  $CertificatePrivateKey = $Certificate.GetRSAPrivateKey()
-  try {
-    if ($CertificatePrivateKey -isnot [Security.Cryptography.RSACng]) {
-      throw "Temporary certificate must use a deletable CurrentUser CNG private key."
-    }
-    $CertificateKeyName = $CertificatePrivateKey.Key.KeyName
-    $CertificateKeyProvider = $CertificatePrivateKey.Key.Provider
-    if ([string]::IsNullOrWhiteSpace($CertificateKeyName) -or -not $CertificateKeyProvider) {
-      throw "Temporary certificate CNG key identity is unavailable."
-    }
-  } finally {
-    if ($CertificatePrivateKey) { $CertificatePrivateKey.Dispose() }
-  }
-  Export-Certificate -Cert $Certificate -FilePath $CerPath | Out-Null
-  $Imported = Import-Certificate -FilePath $CerPath -CertStoreLocation 'Cert:\CurrentUser\TrustedPeople'
-  if ($Imported.Thumbprint -cne $Certificate.Thumbprint) { throw "Temporary certificate trust import mismatch." }
-  Copy-Item -LiteralPath $OriginalAppx -Destination $SignedCopy
-  & $SignTool.FullName sign /sha1 $Certificate.Thumbprint /fd SHA256 /v $SignedCopy | Out-Host
-  if ($LASTEXITCODE -ne 0) { throw "Temporary AppX signing failed with exit code $LASTEXITCODE." }
-  $TemporarySignature = Get-AuthenticodeSignature -LiteralPath $SignedCopy
-  if ($TemporarySignature.Status -ne [Management.Automation.SignatureStatus]::Valid -or
-      $TemporarySignature.SignerCertificate.Thumbprint -cne $Certificate.Thumbprint) {
-    throw "Temporary AppX signature does not use the exact ephemeral certificate."
-  }
+  Assert-FrozenSigningCandidate
 
   $WackReport = Join-Path $EvidenceRoot 'wack-report.xml'
   $ResetLog = Join-Path $EvidenceRoot 'wack-reset.txt'
@@ -529,6 +582,7 @@ try {
   }
   $WackResult = Assert-WackXmlPass -ReportPath $WackReport
   $WackCandidateBinding = Assert-WackReportCandidateBinding -ReportPath $WackReport
+  Assert-FrozenSigningCandidate
   $OriginalHashAfterWack = (Get-FileHash -LiteralPath $OriginalAppx -Algorithm SHA256).Hash.ToLowerInvariant()
   if ($OriginalHashAfterWack -cne $OriginalHashBefore) { throw "WACK phase changed the original Partner Center AppX." }
 
@@ -652,6 +706,7 @@ try {
   }
   $OriginalHashAfter = (Get-FileHash -LiteralPath $OriginalAppx -Algorithm SHA256).Hash.ToLowerInvariant()
   if ($OriginalHashAfter -cne $OriginalHashBefore) { throw "Original Partner Center candidate changed during QA." }
+  Assert-FrozenSigningCandidate
 
   [ordered]@{
     round = $Round
@@ -662,6 +717,14 @@ try {
     publisher = $Publisher
     sourceCommit = $SourceCommit
     appxSha256 = $OriginalHashAfter
+    signedAppxSha256 = $ExpectedSignedHash
+    temporaryCertificateThumbprint = $CertificateThumbprint
+    signToolSha256 = $SignToolHash
+    signToolFileVersion = $SignToolVersion
+    makeAppxSha256 = $MakeAppxHash
+    makeAppxFileVersion = $MakeAppxVersion
+    appCertSha256 = $AppCertHash
+    appCertFileVersion = $AppCertVersion
     executableSha256 = $StoreExeHash
     wackOverall = $WackResult.Overall
     wackLatestVersion = $WackResult.LatestVersion
@@ -681,6 +744,11 @@ try {
   $PrimaryError = $_
 } finally {
   $CleanupErrors = [Collections.Generic.List[string]]::new()
+  try {
+    Assert-FrozenSigningCandidate
+  } catch {
+    $CleanupErrors.Add("Frozen Store QA signing candidate failed its final integrity check: $($_.Exception.Message)")
+  }
   try {
     Capture-FreshExactAppCertRoots -Errors $CleanupErrors
   } catch {
@@ -814,42 +882,6 @@ try {
       }
     } catch {
       $CleanupErrors.Add("Could not remove owned AppCert root '$AppCertRoot': $($_.Exception.Message)")
-    }
-  }
-  if ($Certificate) {
-    try {
-      $MyCertificatePath = "Cert:\CurrentUser\My\$($Certificate.Thumbprint)"
-      $TrustedCertificatePath = "Cert:\CurrentUser\TrustedPeople\$($Certificate.Thumbprint)"
-      if (Test-Path -LiteralPath $MyCertificatePath) {
-        Remove-Item -LiteralPath $MyCertificatePath -DeleteKey -Force -ErrorAction Stop
-      }
-      if (Test-Path -LiteralPath $TrustedCertificatePath) {
-        Remove-Item -LiteralPath $TrustedCertificatePath -Force -ErrorAction Stop
-      }
-      foreach ($Location in @('CurrentUser\My', 'CurrentUser\TrustedPeople')) {
-        if (Test-Path -LiteralPath "Cert:\$Location\$($Certificate.Thumbprint)") {
-          $CleanupErrors.Add("Temporary certificate cleanup failed for $Location.")
-        }
-      }
-    } catch {
-      $CleanupErrors.Add("Temporary certificate cleanup raised an error: $($_.Exception.Message)")
-    }
-  }
-  if ($CertificateKeyName -and $CertificateKeyProvider) {
-    $KeyProbe = $null
-    try {
-      $KeyProbe = [Security.Cryptography.CngKey]::Open(
-        $CertificateKeyName,
-        $CertificateKeyProvider,
-        [Security.Cryptography.CngKeyOpenOptions]::UserKey
-      )
-      $CleanupErrors.Add('Temporary certificate private key remained in the CurrentUser CNG provider.')
-    } catch [Security.Cryptography.CryptographicException] {
-      # Expected: -DeleteKey removed the exact private-key container.
-    } catch {
-      $CleanupErrors.Add("Could not prove temporary CNG private-key deletion: $($_.Exception.Message)")
-    } finally {
-      if ($KeyProbe) { $KeyProbe.Dispose() }
     }
   }
   try {

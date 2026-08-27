@@ -14,17 +14,16 @@ Set-StrictMode -Version Latest
 $PSNativeCommandUseErrorActionPreference = $true
 
 if (-not $IsWindows) { throw "windows-lifecycle.ps1 must run on Windows." }
+. (Join-Path $PSScriptRoot 'trusted-windows-sdk-tool.ps1')
 
 $SignTool = $null
+$SignToolHash = $null
+$SignToolVersion = $null
 if ($RequireTrustedLaiSignature) {
-  $WindowsKitsBin = Join-Path ${env:ProgramFiles(x86)} 'Windows Kits\10\bin'
-  $SignTool = Get-ChildItem -LiteralPath $WindowsKitsBin -Recurse -File -Filter signtool.exe |
-    Where-Object { $_.FullName -like '*\x64\signtool.exe' } |
-    Sort-Object FullName -Descending |
-    Select-Object -First 1
-  if (-not $SignTool) {
-    throw "The latest Windows SDK x64 SignTool is required for trusted public release verification."
-  }
+  $SignTool = Get-TrustedWindowsSdkTool -Name 'signtool.exe'
+  $SignToolHash = (Get-FileHash -LiteralPath $SignTool.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
+  $SignToolVersion = [string]$SignTool.VersionInfo.FileVersion
+  if ([string]::IsNullOrWhiteSpace($SignToolVersion)) { throw 'Trusted signtool.exe has no file version.' }
 }
 
 $ProjectRoot = (Resolve-Path -LiteralPath (Join-Path $PSScriptRoot "..\..")).Path
@@ -538,6 +537,8 @@ try {
       author = 'LAI ZEYU（来泽宇）'
       portableZipSha256 = $ArchiveHashAfter
       signerSimpleName = $VerifiedSigner
+      signToolSha256 = $SignToolHash
+      signToolFileVersion = $SignToolVersion
       portablePeCount = $PortableBinaries.Count
       processBoundNonce = 'PASS'
       portableUi = 'PASS'
@@ -661,6 +662,8 @@ try {
     portableZipSha256 = $ArchiveHashAfter
     installedExecutableSha256 = $InstalledExeHash
     signerSimpleName = $(if ($RequireTrustedLaiSignature) { $VerifiedSigner } else { 'PRIVATE-UNSIGNED-QA' })
+    signToolSha256 = $(if ($RequireTrustedLaiSignature) { $SignToolHash } else { $null })
+    signToolFileVersion = $(if ($RequireTrustedLaiSignature) { $SignToolVersion } else { $null })
     portablePeCount = $PortableBinaries.Count
     installedPeCount = $InstalledBinaries.Count
     processBoundNonce = 'PASS'
