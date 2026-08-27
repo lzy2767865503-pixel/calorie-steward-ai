@@ -176,12 +176,28 @@ jobs:
 
   store-package-sideload-test:
     name: Store package - exact identity and temporary-signature sideload
+    # External prerequisite: transfer repository ID 1345152257 into an
+    # organization, then restrict this OS-specific runner group to this
+    # workflow on protected main and provision a disposable --ephemeral VM.
+    # The current user-owned repository has no runner-group capability or
+    # matching runner, so the privileged job intentionally remains fail-closed.
     if: >-
+      github.repository_id == '1345152257' &&
       github.event_name == 'workflow_dispatch' &&
       github.ref == 'refs/heads/main' &&
+      github.ref_protected == true &&
       github.actor == 'lzy2767865503-pixel' &&
+      github.triggering_actor == 'lzy2767865503-pixel' &&
       inputs.build_store_package
-    runs-on: [self-hosted, Windows, X64, interactive-wack]
+    runs-on:
+      group: trusted-windows-interactive-calorie-store
+      labels:
+        - self-hosted
+        - Windows
+        - X64
+        - interactive-wack
+        - ephemeral
+        - windows-11-24h2
     timeout-minutes: 330
     environment: windows-store-validation
     concurrency:
@@ -236,6 +252,19 @@ jobs:
           npm --prefix windows-app sbom --sbom-format cyclonedx --sbom-type application |
             Set-Content windows-app/release/calorie-steward-electron.cdx.json -Encoding utf8
 
+      - name: Prepare one frozen temporary-signature AppX for both Store passes
+        shell: pwsh
+        run: |
+          $appxFiles = @(Get-ChildItem windows-app/release -File -Filter '*.appx')
+          if ($appxFiles.Count -ne 1) { throw "Expected exactly one Store AppX" }
+          $signingRoot = Join-Path $env:RUNNER_TEMP 'calorie-store-signing-${{ github.run_id }}-${{ github.run_attempt }}'
+          ./windows-app/scripts/prepare-store-test-candidate.ps1 `
+            -AppxPath $appxFiles[0].FullName `
+            -Publisher $env:WINDOWS_PUBLISHER `
+            -StateDirectory $signingRoot
+          "CALORIE_STORE_SIGNING_ROOT=$signingRoot" >> $env:GITHUB_ENV
+          "CALORIE_STORE_SIGNING_STATE=$(Join-Path $signingRoot 'state.json')" >> $env:GITHUB_ENV
+
       - name: Store Pass A - WACK, manifest, UI, install, and uninstall
         shell: pwsh
         run: |
@@ -245,6 +274,7 @@ jobs:
             -AppxPath $appxFiles[0].FullName `
             -IdentityName $env:WINDOWS_IDENTITY_NAME `
             -Publisher $env:WINDOWS_PUBLISHER `
+            -SigningStatePath $env:CALORIE_STORE_SIGNING_STATE `
             -EvidenceDirectory ./windows-app/evidence/store-round-1 `
             -Round 1
 
@@ -257,6 +287,7 @@ jobs:
             -AppxPath $appxFiles[0].FullName `
             -IdentityName $env:WINDOWS_IDENTITY_NAME `
             -Publisher $env:WINDOWS_PUBLISHER `
+            -SigningStatePath $env:CALORIE_STORE_SIGNING_STATE `
             -EvidenceDirectory ./windows-app/evidence/store-round-2 `
             -Round 2
 
@@ -273,6 +304,14 @@ jobs:
               if ($Result.author -cne 'LAI ZEYU（来泽宇）' -or
                   $Result.publisherDisplayName -cne 'LAI ZEYU' -or
                   $Result.publisher -cne 'CN=A5F91D0A-30C6-48EE-944F-B767FA872BE8' -or
+                  [string]$Result.signedAppxSha256 -notmatch '^[0-9a-f]{64}$' -or
+                  [string]$Result.temporaryCertificateThumbprint -notmatch '^[0-9A-F]{40,64}$' -or
+                  [string]$Result.signToolSha256 -notmatch '^[0-9a-f]{64}$' -or
+                  [string]$Result.makeAppxSha256 -notmatch '^[0-9a-f]{64}$' -or
+                  [string]$Result.appCertSha256 -notmatch '^[0-9a-f]{64}$' -or
+                  [string]::IsNullOrWhiteSpace([string]$Result.signToolFileVersion) -or
+                  [string]::IsNullOrWhiteSpace([string]$Result.makeAppxFileVersion) -or
+                  [string]::IsNullOrWhiteSpace([string]$Result.appCertFileVersion) -or
                   $Result.wackOverall -notin @('PASS', 'PASSED') -or
                   $Result.wackLatestVersion -ne $true -or
                   [string]$Result.wackVersion -notmatch '^\d+(?:\.\d+){2,3}$') {
@@ -282,6 +321,14 @@ jobs:
             if ($First.round -ne 1 -or $Second.round -ne 2 -or
                 $First.sourceCommit -cne $Second.sourceCommit -or
                 $First.appxSha256 -cne $Second.appxSha256 -or
+                $First.signedAppxSha256 -cne $Second.signedAppxSha256 -or
+                $First.temporaryCertificateThumbprint -cne $Second.temporaryCertificateThumbprint -or
+                $First.signToolSha256 -cne $Second.signToolSha256 -or
+                $First.signToolFileVersion -cne $Second.signToolFileVersion -or
+                $First.makeAppxSha256 -cne $Second.makeAppxSha256 -or
+                $First.makeAppxFileVersion -cne $Second.makeAppxFileVersion -or
+                $First.appCertSha256 -cne $Second.appCertSha256 -or
+                $First.appCertFileVersion -cne $Second.appCertFileVersion -or
                 $First.executableSha256 -cne $Second.executableSha256 -or
                 $First.identityName -cne $Second.identityName) {
               throw "Store Pass A and Pass B do not bind the same source and AppX bytes."
@@ -294,6 +341,7 @@ jobs:
               '- Store Pass B: WACK + process-bound lifecycle PASS',
               "- WACK versions: ``$($First.wackVersion)`` / ``$($Second.wackVersion)`` (latest: true)",
               "- Source AppX SHA-256: ``$($First.appxSha256)``",
+              "- Identical temporary-signed AppX SHA-256: ``$($First.signedAppxSha256)``",
               "- WACK report SHA-256 A: ``$($First.wackReportSha256)``",
               "- WACK report SHA-256 B: ``$($Second.wackReportSha256)``",
               '- AppX and temporary certificate bytes: not uploaded'
@@ -306,6 +354,13 @@ jobs:
               '- No AppX or temporary certificate bytes were uploaded'
             ) >> $env:GITHUB_STEP_SUMMARY
           }
+
+      - name: Remove one-time Store QA certificate, private key, and signed AppX
+        if: always()
+        shell: pwsh
+        run: |
+          $signingRoot = Join-Path $env:RUNNER_TEMP 'calorie-store-signing-${{ github.run_id }}-${{ github.run_attempt }}'
+          ./windows-app/scripts/cleanup-store-test-candidate.ps1 -StateDirectory $signingRoot
 
       - name: Remove private Store package and evidence bytes
         if: always()

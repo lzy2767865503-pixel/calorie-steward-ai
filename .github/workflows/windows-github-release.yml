@@ -9,7 +9,7 @@ on:
         type: string
 
 permissions:
-  contents: write
+  contents: read
 
 concurrency:
   group: trusted-windows-release
@@ -18,10 +18,25 @@ concurrency:
 jobs:
   signed-release:
     name: LAI ZEYU signed portable, two passes, then Release
-    if: github.ref == 'refs/heads/main' && github.actor == 'lzy2767865503-pixel'
+    if: >-
+      github.repository_id == '1345152257' &&
+      github.ref == 'refs/heads/main' &&
+      github.ref_protected == true &&
+      github.actor == 'lzy2767865503-pixel' &&
+      github.triggering_actor == 'lzy2767865503-pixel'
     runs-on: windows-latest
     timeout-minutes: 180
     environment: trusted-windows-release
+    permissions:
+      contents: read
+    outputs:
+      source_commit: ${{ steps.release_metadata.outputs.source_commit }}
+      archive_name: ${{ steps.release_metadata.outputs.archive_name }}
+      archive_sha256: ${{ steps.release_metadata.outputs.archive_sha256 }}
+      sums_sha256: ${{ steps.release_metadata.outputs.sums_sha256 }}
+      product_sbom_sha256: ${{ steps.release_metadata.outputs.product_sbom_sha256 }}
+      electron_sbom_sha256: ${{ steps.release_metadata.outputs.electron_sbom_sha256 }}
+      portable_pe_count: ${{ steps.release_metadata.outputs.portable_pe_count }}
     env:
       RELEASE_TAG: ${{ inputs.release_tag }}
     steps:
@@ -32,27 +47,38 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
 
-      - name: Require approved immutable source on main and an unused Release
+      - name: Require the approved tag to be the exact current protected main commit
         id: source
         shell: pwsh
         env:
-          GH_TOKEN: ${{ github.token }}
           APPROVED_TAG: ${{ vars.CALORIE_WINDOWS_RELEASE_APPROVED_TAG }}
         run: |
+          $ErrorActionPreference = 'Stop'
+          $PSNativeCommandUseErrorActionPreference = $true
           if ($env:RELEASE_TAG -cne 'windows-v1.2.3' -or $env:APPROVED_TAG -cne $env:RELEASE_TAG) {
             throw "Release tag is not the exact protected/approved windows-v1.2.3 tag."
           }
-          $TagCommit = (& git rev-parse "$env:RELEASE_TAG^{}").Trim()
-          $HeadCommit = (& git rev-parse HEAD).Trim()
-          if ($LASTEXITCODE -ne 0 -or $TagCommit -cne $HeadCommit -or $HeadCommit -notmatch '^[a-f0-9]{40}$') {
-            throw "Tag and checked-out source commit differ."
+          & git fetch --force origin "refs/tags/$($env:RELEASE_TAG):refs/tags/$($env:RELEASE_TAG)"
+          & git fetch --force origin 'refs/heads/main:refs/remotes/origin/main'
+          $TagCommit = (& git rev-parse "$($env:RELEASE_TAG)^{}").Trim().ToLowerInvariant()
+          $HeadCommit = (& git rev-parse HEAD).Trim().ToLowerInvariant()
+          $MainCommit = (& git rev-parse refs/remotes/origin/main).Trim().ToLowerInvariant()
+          $RemoteLines = @(& git ls-remote --exit-code --tags origin "refs/tags/$($env:RELEASE_TAG)" "refs/tags/$($env:RELEASE_TAG)^{}")
+          $PeeledLines = @($RemoteLines | Where-Object { $_ -match "refs/tags/$([Regex]::Escape($env:RELEASE_TAG))\^\{\}$" })
+          $DirectLines = @($RemoteLines | Where-Object { $_ -match "refs/tags/$([Regex]::Escape($env:RELEASE_TAG))$" })
+          $RemoteCommit = if ($PeeledLines.Count -eq 1) {
+            ($PeeledLines[0] -split '\s+')[0].ToLowerInvariant()
+          } elseif ($PeeledLines.Count -eq 0 -and $DirectLines.Count -eq 1) {
+            ($DirectLines[0] -split '\s+')[0].ToLowerInvariant()
+          } else {
+            throw 'Remote release tag is missing or ambiguous.'
           }
-          & git merge-base --is-ancestor $HeadCommit origin/main
-          if ($LASTEXITCODE -ne 0) { throw "Release tag is not reachable from origin/main." }
+          if ($TagCommit -cne $HeadCommit -or $RemoteCommit -cne $HeadCommit -or
+              $MainCommit -cne $HeadCommit -or $HeadCommit -notmatch '^[a-f0-9]{40}$') {
+            throw 'Checked-out HEAD, peeled tag, remote tag, and current protected main must be one exact commit.'
+          }
           $Version = (Get-Content windows-app/package.json -Raw | ConvertFrom-Json).version
           if ($Version -cne '1.2.3') { throw "Package version and immutable Windows tag differ." }
-          & gh release view $env:RELEASE_TAG *> $null
-          if ($LASTEXITCODE -eq 0) { throw "A GitHub Release already exists for $env:RELEASE_TAG." }
           "commit=$HeadCommit" >> $env:GITHUB_OUTPUT
 
       - name: Set up Node.js
@@ -170,57 +196,49 @@ jobs:
           if ($First.portableZipSha256 -cne $ArchiveHash -or $Second.portableZipSha256 -cne $ArchiveHash -or
               $First.signerSimpleName -cne $Second.signerSimpleName -or
               $First.signerSimpleName -cnotin @('LAI ZEYU', '来泽宇') -or
+              [string]$First.signToolSha256 -notmatch '^[0-9a-f]{64}$' -or
+              $First.signToolSha256 -cne $Second.signToolSha256 -or
+              [string]::IsNullOrWhiteSpace([string]$First.signToolFileVersion) -or
+              $First.signToolFileVersion -cne $Second.signToolFileVersion -or
               $First.portablePeCount -ne $Second.portablePeCount) {
             throw "Two signed portable lifecycle rounds do not bind the same archive, signer, and PE inventory."
           }
 
-      - name: Create a private draft and upload exact verified assets
+      - name: Refreeze current main and export exact verified asset metadata
+        id: release_metadata
         shell: pwsh
         env:
-          GH_TOKEN: ${{ github.token }}
+          SOURCE_COMMIT: ${{ steps.source.outputs.commit }}
         run: |
+          $ErrorActionPreference = 'Stop'
+          $PSNativeCommandUseErrorActionPreference = $true
+          & git fetch --force origin "refs/tags/$($env:RELEASE_TAG):refs/tags/$($env:RELEASE_TAG)"
+          & git fetch --force origin 'refs/heads/main:refs/remotes/origin/main'
+          $TagCommit = (& git rev-parse "$($env:RELEASE_TAG)^{}").Trim().ToLowerInvariant()
+          $HeadCommit = (& git rev-parse HEAD).Trim().ToLowerInvariant()
+          $MainCommit = (& git rev-parse refs/remotes/origin/main).Trim().ToLowerInvariant()
+          if ($TagCommit -cne $env:SOURCE_COMMIT -or $HeadCommit -cne $env:SOURCE_COMMIT -or
+              $MainCommit -cne $env:SOURCE_COMMIT) {
+            throw 'Tag, checked-out source, or protected main moved after signed verification.'
+          }
           $Archive = @(Get-ChildItem windows-app/release -File -Filter '*.zip')
-          if ($Archive.Count -ne 1) { throw "Portable release archive is ambiguous." }
-          & gh release create $env:RELEASE_TAG `
-            --verify-tag --draft `
-            --title "Calorie Steward by LAI ZEYU 1.2.3 for Windows" `
-            --notes "Portable Windows edition created and authored by LAI ZEYU（来泽宇）. Every shipped PE inside the ZIP carries a publicly trusted, timestamped LAI ZEYU/来泽宇 Authenticode signature and passed two same-byte process-bound UI rounds. Microsoft Store certification is tracked separately."
-          if ($LASTEXITCODE -ne 0) { throw "Draft GitHub Release creation failed." }
-          & gh release upload $env:RELEASE_TAG `
-            $Archive[0].FullName `
-            windows-app/release/SHA256SUMS.txt `
-            windows-app/release/calorie-steward-product.cdx.json `
-            windows-app/release/calorie-steward-electron.cdx.json
-          if ($LASTEXITCODE -ne 0) { throw "Asset upload failed; Release remains a private draft." }
-
-      - name: Download draft assets and verify remote bytes before publication
-        shell: pwsh
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          $RemoteRoot = Join-Path $env:RUNNER_TEMP 'calorie-release-remote-check'
-          if (Test-Path -LiteralPath $RemoteRoot) { throw "Remote-check directory unexpectedly exists." }
-          New-Item -ItemType Directory -Path $RemoteRoot | Out-Null
-          & gh release download $env:RELEASE_TAG --dir $RemoteRoot
-          if ($LASTEXITCODE -ne 0) { throw "Private draft assets could not be downloaded for verification." }
-          $LocalFiles = @(
-            Get-ChildItem windows-app/release -File -Filter '*.zip'
-            Get-Item windows-app/release/SHA256SUMS.txt
-            Get-ChildItem windows-app/release -File -Filter '*.cdx.json'
-          )
-          $RemoteFiles = @(Get-ChildItem -LiteralPath $RemoteRoot -File)
-          if ($LocalFiles.Count -ne 4 -or $RemoteFiles.Count -ne 4 -or
-              (Compare-Object ($LocalFiles.Name | Sort-Object) ($RemoteFiles.Name | Sort-Object))) {
-            throw "Private draft asset inventory differs from the verified local inventory."
+          $Sums = Get-Item windows-app/release/SHA256SUMS.txt
+          $ProductSbom = Get-Item windows-app/release/calorie-steward-product.cdx.json
+          $ElectronSbom = Get-Item windows-app/release/calorie-steward-electron.cdx.json
+          $Lifecycle = Get-Content windows-app/evidence/signed-round-1/lifecycle.json -Raw | ConvertFrom-Json
+          if ($Archive.Count -ne 1) {
+            throw 'Verified public asset inventory is missing or ambiguous.'
           }
-          foreach ($Local in $LocalFiles) {
-            $Remote = Join-Path $RemoteRoot $Local.Name
-            if ((Get-FileHash -LiteralPath $Local.FullName -Algorithm SHA256).Hash -cne
-                (Get-FileHash -LiteralPath $Remote -Algorithm SHA256).Hash) {
-              throw "Remote draft asset hash mismatch: $($Local.Name)"
-            }
+          "source_commit=$($env:SOURCE_COMMIT)" >> $env:GITHUB_OUTPUT
+          "archive_name=$($Archive[0].Name)" >> $env:GITHUB_OUTPUT
+          "archive_sha256=$((Get-FileHash -LiteralPath $Archive[0].FullName -Algorithm SHA256).Hash.ToLowerInvariant())" >> $env:GITHUB_OUTPUT
+          "sums_sha256=$((Get-FileHash -LiteralPath $Sums.FullName -Algorithm SHA256).Hash.ToLowerInvariant())" >> $env:GITHUB_OUTPUT
+          "product_sbom_sha256=$((Get-FileHash -LiteralPath $ProductSbom.FullName -Algorithm SHA256).Hash.ToLowerInvariant())" >> $env:GITHUB_OUTPUT
+          "electron_sbom_sha256=$((Get-FileHash -LiteralPath $ElectronSbom.FullName -Algorithm SHA256).Hash.ToLowerInvariant())" >> $env:GITHUB_OUTPUT
+          if ([int]$Lifecycle.portablePeCount -lt 1) {
+            throw 'Signed lifecycle evidence has malformed PE inventory metadata.'
           }
-          Remove-Item -LiteralPath $RemoteRoot -Recurse -Force
+          "portable_pe_count=$([int]$Lifecycle.portablePeCount)" >> $env:GITHUB_OUTPUT
 
       - name: Remove eSigner client and temporary signing state before publication
         shell: pwsh
@@ -239,103 +257,17 @@ jobs:
           )
           if ($SigningResidue.Count -gt 0) { throw "Signing/certificate residue remains before publication." }
 
-      - name: Recheck remote tag and publish the exact private draft
-        shell: pwsh
-        env:
-          GH_TOKEN: ${{ github.token }}
-          SOURCE_COMMIT: ${{ steps.source.outputs.commit }}
-        run: |
-          function Get-RemoteTagCommit {
-            $RemoteLines = @(& git ls-remote --tags origin "refs/tags/$env:RELEASE_TAG" "refs/tags/$env:RELEASE_TAG^{}")
-            if ($LASTEXITCODE -ne 0 -or $RemoteLines.Count -lt 1) { throw "Remote release tag disappeared." }
-            $Peeled = $RemoteLines | Where-Object { $_ -match '\^\{\}$' } | Select-Object -First 1
-            return $(if ($Peeled) { ($Peeled -split '\s+')[0] } else { ($RemoteLines[0] -split '\s+')[0] })
-          }
-          function Assert-RemoteAssetHashes {
-            param([Parameter(Mandatory = $true)][string]$Phase)
-            $RemoteRoot = Join-Path $env:RUNNER_TEMP "calorie-release-$Phase-$([Guid]::NewGuid().ToString('N'))"
-            New-Item -ItemType Directory -Path $RemoteRoot | Out-Null
-            try {
-              & gh release download $env:RELEASE_TAG --dir $RemoteRoot
-              if ($LASTEXITCODE -ne 0) { throw "Release assets could not be downloaded during $Phase verification." }
-              $LocalFiles = @(
-                Get-ChildItem windows-app/release -File -Filter '*.zip'
-                Get-Item windows-app/release/SHA256SUMS.txt
-                Get-ChildItem windows-app/release -File -Filter '*.cdx.json'
-              )
-              $RemoteFiles = @(Get-ChildItem -LiteralPath $RemoteRoot -File)
-              if ($LocalFiles.Count -ne 4 -or $RemoteFiles.Count -ne 4 -or
-                  (Compare-Object ($LocalFiles.Name | Sort-Object) ($RemoteFiles.Name | Sort-Object))) {
-                throw "Release asset inventory changed during $Phase verification."
-              }
-              foreach ($Local in $LocalFiles) {
-                $Remote = Join-Path $RemoteRoot $Local.Name
-                if ((Get-FileHash -LiteralPath $Local.FullName -Algorithm SHA256).Hash -cne
-                    (Get-FileHash -LiteralPath $Remote -Algorithm SHA256).Hash) {
-                  throw "Release asset bytes changed during $Phase verification: $($Local.Name)"
-                }
-              }
-            } finally {
-              if (Test-Path -LiteralPath $RemoteRoot) { Remove-Item -LiteralPath $RemoteRoot -Recurse -Force }
-            }
-          }
-          function Restore-AndConfirmPrivateDraft {
-            $Observations = [Collections.Generic.List[string]]::new()
-            foreach ($Attempt in 1..4) {
-              & gh release edit $env:RELEASE_TAG --draft=true
-              $EditExit = $LASTEXITCODE
-              $ViewText = & gh release view $env:RELEASE_TAG --json isDraft 2>&1
-              $ViewExit = $LASTEXITCODE
-              if ($ViewExit -eq 0) {
-                try {
-                  $State = $ViewText | ConvertFrom-Json
-                  if ($State.isDraft -eq $true) { return }
-                } catch {
-                  $Observations.Add("attempt $Attempt returned malformed state JSON")
-                }
-              }
-              $Observations.Add("attempt $Attempt editExit=$EditExit viewExit=$ViewExit")
-              Start-Sleep -Seconds ([Math]::Pow(2, $Attempt - 1))
-            }
-            throw "Could not confirm that the ambiguous publication was restored to a private draft: $($Observations -join '; ')"
-          }
-          try {
-            $RemoteCommit = Get-RemoteTagCommit
-            if ($RemoteCommit -cne $env:SOURCE_COMMIT) { throw "Remote tag moved after signed verification." }
-            $Release = & gh release view $env:RELEASE_TAG --json isDraft,assets | ConvertFrom-Json
-            $ExpectedNames = @(
-              (Get-ChildItem windows-app/release -File -Filter '*.zip').Name,
-              'SHA256SUMS.txt',
-              'calorie-steward-product.cdx.json',
-              'calorie-steward-electron.cdx.json'
-            ) | Sort-Object
-            $ActualNames = @($Release.assets | ForEach-Object { $_.name }) | Sort-Object
-            if ($Release.isDraft -ne $true -or (Compare-Object $ExpectedNames $ActualNames)) {
-              throw "Private draft inventory is incomplete; it will not be published."
-            }
-            Assert-RemoteAssetHashes -Phase 'immediate-prepublish'
-            & gh release edit $env:RELEASE_TAG --draft=false
-            if ($LASTEXITCODE -ne 0) {
-              throw "GitHub CLI returned a publication failure after the publish request was sent."
-            }
-            $Published = & gh release view $env:RELEASE_TAG --json isDraft,assets | ConvertFrom-Json
-            $PublishedNames = @($Published.assets | ForEach-Object { $_.name }) | Sort-Object
-            if ($Published.isDraft -ne $false -or (Compare-Object $ExpectedNames $PublishedNames)) {
-              throw "Published Release state or inventory is invalid."
-            }
-            if ((Get-RemoteTagCommit) -cne $env:SOURCE_COMMIT) {
-              throw "Remote tag moved during publication."
-            }
-            Assert-RemoteAssetHashes -Phase 'immediate-postpublish'
-          } catch {
-            $VerificationFailure = $_.Exception.Message
-            try {
-              Restore-AndConfirmPrivateDraft
-            } catch {
-              throw "Release publication entered an ambiguous state and a private draft could not be confirmed. Original failure: $VerificationFailure. Rollback failure: $($_.Exception.Message)"
-            }
-            throw "Release publication failed or post-publication verification failed; the Release was confirmed back in private draft state: $VerificationFailure"
-          }
+      - name: Upload only the exact signed assets for the isolated publisher
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: calorie-steward-signed-release-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            windows-app/release/*.zip
+            windows-app/release/SHA256SUMS.txt
+            windows-app/release/calorie-steward-product.cdx.json
+            windows-app/release/calorie-steward-electron.cdx.json
+          if-no-files-found: error
+          retention-days: 1
 
       - name: Best-effort isolated eSigner cleanup after failure
         if: always() && steps.codesigntool.outputs.tool_root != ''
@@ -348,3 +280,499 @@ jobs:
           }
           if (Test-Path -LiteralPath $ToolRoot) { Remove-Item -LiteralPath $ToolRoot -Recurse -Force }
           if (Test-Path -LiteralPath $ToolRoot) { throw "Fallback eSigner cleanup failed." }
+
+  publish-release:
+    name: Isolated no-checkout GitHub publisher with exact-ID rollback
+    needs: signed-release
+    if: >-
+      github.repository_id == '1345152257' &&
+      github.ref == 'refs/heads/main' &&
+      github.ref_protected == true &&
+      github.actor == 'lzy2767865503-pixel' &&
+      github.triggering_actor == 'lzy2767865503-pixel' &&
+      needs.signed-release.result == 'success'
+    runs-on: windows-latest
+    timeout-minutes: 30
+    environment: trusted-windows-release
+    permissions:
+      contents: write
+    env:
+      RELEASE_TAG: ${{ inputs.release_tag }}
+      SOURCE_COMMIT: ${{ needs.signed-release.outputs.source_commit }}
+      EXPECTED_ARCHIVE_NAME: ${{ needs.signed-release.outputs.archive_name }}
+      EXPECTED_ARCHIVE_SHA256: ${{ needs.signed-release.outputs.archive_sha256 }}
+      EXPECTED_SUMS_SHA256: ${{ needs.signed-release.outputs.sums_sha256 }}
+      EXPECTED_PRODUCT_SBOM_SHA256: ${{ needs.signed-release.outputs.product_sbom_sha256 }}
+      EXPECTED_ELECTRON_SBOM_SHA256: ${{ needs.signed-release.outputs.electron_sbom_sha256 }}
+      EXPECTED_PORTABLE_PE_COUNT: ${{ needs.signed-release.outputs.portable_pe_count }}
+      RELEASE_OWNERSHIP_MARKER: '<!-- calorie-steward-publisher:${{ github.run_id }}:${{ github.run_attempt }} -->'
+    steps:
+      - name: Download the exact same-run signed publication input
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: calorie-steward-signed-release-${{ github.run_id }}-${{ github.run_attempt }}
+          path: publisher-input
+
+      - name: Verify bytes, create owned draft, publish, and rollback any ambiguity
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $PSNativeCommandUseErrorActionPreference = $true
+          if ($env:RELEASE_TAG -cne 'windows-v1.2.3' -or
+              $env:SOURCE_COMMIT -cnotmatch '^[0-9a-f]{40}$' -or
+              $env:EXPECTED_ARCHIVE_NAME -cne 'Calorie-Steward-Windows-1.2.3-x64.zip' -or
+              $env:EXPECTED_ARCHIVE_SHA256 -cnotmatch '^[0-9a-f]{64}$' -or
+              $env:EXPECTED_SUMS_SHA256 -cnotmatch '^[0-9a-f]{64}$' -or
+              $env:EXPECTED_PRODUCT_SBOM_SHA256 -cnotmatch '^[0-9a-f]{64}$' -or
+              $env:EXPECTED_ELECTRON_SBOM_SHA256 -cnotmatch '^[0-9a-f]{64}$' -or
+              $env:EXPECTED_PORTABLE_PE_COUNT -cnotmatch '^[1-9][0-9]*$' -or
+              $env:RELEASE_OWNERSHIP_MARKER -cnotmatch '^<!-- calorie-steward-publisher:\d+:\d+ -->$' -or
+              [string]::IsNullOrWhiteSpace($env:GH_TOKEN)) {
+            throw 'The isolated publisher inputs are missing, malformed, or not the exact v1.2.3 release.'
+          }
+
+          $InputRoot = (Resolve-Path -LiteralPath ./publisher-input).Path
+          $ExpectedHashes = [ordered]@{
+            $env:EXPECTED_ARCHIVE_NAME = $env:EXPECTED_ARCHIVE_SHA256
+            'SHA256SUMS.txt' = $env:EXPECTED_SUMS_SHA256
+            'calorie-steward-product.cdx.json' = $env:EXPECTED_PRODUCT_SBOM_SHA256
+            'calorie-steward-electron.cdx.json' = $env:EXPECTED_ELECTRON_SBOM_SHA256
+          }
+          $InputItems = @(Get-ChildItem -LiteralPath $InputRoot -Recurse -Force)
+          $InputFiles = @($InputItems | Where-Object { -not $_.PSIsContainer })
+          if ($InputFiles.Count -ne 4 -or
+              @($InputItems | Where-Object {
+                $_.Attributes -band [IO.FileAttributes]::ReparsePoint -or $_.PSIsContainer
+              }).Count -gt 0 -or
+              (Compare-Object @($ExpectedHashes.Keys | Sort-Object) @($InputFiles.Name | Sort-Object))) {
+            throw 'Same-run publication input has unexpected files, directories, or reparse points.'
+          }
+          foreach ($Name in $ExpectedHashes.Keys) {
+            $Path = Join-Path $InputRoot $Name
+            $Hash = (Get-FileHash -LiteralPath $Path -Algorithm SHA256).Hash.ToLowerInvariant()
+            if ($Hash -cne $ExpectedHashes[$Name]) {
+              throw "Same-run publication input hash mismatch: $Name"
+            }
+          }
+          $ExpectedSumLines = @(
+            "$($env:EXPECTED_ARCHIVE_SHA256)  $($env:EXPECTED_ARCHIVE_NAME)"
+            "$($env:EXPECTED_ELECTRON_SBOM_SHA256)  calorie-steward-electron.cdx.json"
+            "$($env:EXPECTED_PRODUCT_SBOM_SHA256)  calorie-steward-product.cdx.json"
+          ) | Sort-Object
+          $ActualSumLines = @(
+            (Get-Content -LiteralPath (Join-Path $InputRoot 'SHA256SUMS.txt') -Raw).Trim() -split '\r?\n'
+          ) | Sort-Object
+          if ($ActualSumLines.Count -ne 3 -or (Compare-Object $ExpectedSumLines $ActualSumLines)) {
+            throw 'SHA256SUMS.txt does not strictly bind the three public payload assets.'
+          }
+          foreach ($SbomName in @('calorie-steward-product.cdx.json', 'calorie-steward-electron.cdx.json')) {
+            try {
+              $Sbom = Get-Content -LiteralPath (Join-Path $InputRoot $SbomName) -Raw | ConvertFrom-Json
+            } catch {
+              throw "SBOM is not valid JSON: $SbomName"
+            }
+            if ([string]$Sbom.bomFormat -cne 'CycloneDX') {
+              throw "SBOM is not an exact CycloneDX document: $SbomName"
+            }
+          }
+          $ZipProbe = Join-Path $env:RUNNER_TEMP ("calorie-publisher-zip-" + [Guid]::NewGuid().ToString('N'))
+          try {
+            Expand-Archive -LiteralPath (Join-Path $InputRoot $env:EXPECTED_ARCHIVE_NAME) -DestinationPath $ZipProbe
+            $Expanded = @(Get-ChildItem -LiteralPath $ZipProbe -Recurse -Force)
+            if ($Expanded.Count -lt 1 -or
+                @($Expanded | Where-Object { $_.Attributes -band [IO.FileAttributes]::ReparsePoint }).Count -gt 0) {
+              throw 'Portable ZIP is empty or expands to a reparse point.'
+            }
+          } finally {
+            if (Test-Path -LiteralPath $ZipProbe) {
+              Remove-Item -LiteralPath $ZipProbe -Recurse -Force
+            }
+          }
+
+          $ExpectedTitle = 'Calorie Steward by LAI ZEYU 1.2.3 for Windows'
+          $ExpectedNotes = 'Portable Windows edition created and authored by LAI ZEYU（来泽宇）. Every shipped PE inside the ZIP carries a publicly trusted, timestamped LAI ZEYU/来泽宇 Authenticode signature and passed two same-byte process-bound UI rounds. Microsoft Store certification is tracked separately.'
+          $ExpectedBody = "$ExpectedNotes`n`n$env:RELEASE_OWNERSHIP_MARKER"
+          $ApiBase = "https://api.github.com/repos/$env:GITHUB_REPOSITORY"
+          $ApiHeaders = @{
+            Accept = 'application/vnd.github+json'
+            Authorization = "Bearer $env:GH_TOKEN"
+            'X-GitHub-Api-Version' = '2022-11-28'
+            'User-Agent' = 'calorie-steward-isolated-publisher'
+          }
+
+          function Invoke-GitHubRequest {
+            param(
+              [Parameter(Mandatory = $true)][ValidateSet('GET', 'POST', 'PATCH')][string]$Method,
+              [Parameter(Mandatory = $true)][string]$Uri,
+              [Parameter(Mandatory = $true)][int[]]$ExpectedStatus,
+              [object]$Body = $null
+            )
+            $Parameters = @{
+              Uri = $Uri
+              Method = $Method
+              Headers = $ApiHeaders
+              SkipHttpErrorCheck = $true
+              TimeoutSec = 120
+            }
+            if ($null -ne $Body) {
+              $Parameters.ContentType = 'application/json'
+              $Parameters.Body = $Body | ConvertTo-Json -Depth 8 -Compress
+            }
+            $Response = Invoke-WebRequest @Parameters
+            $Status = [int]$Response.StatusCode
+            if ($Status -notin $ExpectedStatus) {
+              $Detail = [string]$Response.Content
+              if ($Detail.Length -gt 1000) { $Detail = $Detail.Substring(0, 1000) }
+              throw "GitHub REST $Method $Uri returned HTTP $($Status): $Detail"
+            }
+            $Json = $null
+            if (-not [string]::IsNullOrWhiteSpace([string]$Response.Content)) {
+              try { $Json = [string]$Response.Content | ConvertFrom-Json } catch {
+                throw "GitHub REST $Method $Uri returned malformed JSON."
+              }
+            }
+            return [pscustomobject]@{ Status = $Status; Json = $Json }
+          }
+
+          function Get-ReleaseByTagOrNull {
+            $Matches = [Collections.Generic.List[object]]::new()
+            $Complete = $false
+            foreach ($Page in 1..10) {
+              $Response = Invoke-GitHubRequest `
+                -Method 'GET' `
+                -Uri "$ApiBase/releases?per_page=100&page=$Page" `
+                -ExpectedStatus @(200)
+              $PageReleases = @($Response.Json)
+              if ($PageReleases.Count -gt 100) { throw 'GitHub returned an oversized release page.' }
+              foreach ($Release in $PageReleases) {
+                if ([string]$Release.tag_name -ceq $env:RELEASE_TAG) { $Matches.Add($Release) }
+              }
+              if ($PageReleases.Count -lt 100) {
+                $Complete = $true
+                break
+              }
+            }
+            if (-not $Complete) { throw 'Release listing exceeded the strict 1,000-item bound.' }
+            if ($Matches.Count -gt 1) { throw 'Multiple visible Releases claim the selected tag.' }
+            if ($Matches.Count -eq 0) { return $null }
+            return $Matches[0]
+          }
+
+          function Get-ReleaseByIdOrNull([long]$ReleaseId) {
+            $Response = Invoke-GitHubRequest `
+              -Method 'GET' `
+              -Uri "$ApiBase/releases/$ReleaseId" `
+              -ExpectedStatus @(200, 404)
+            if ($Response.Status -eq 404) { return $null }
+            return $Response.Json
+          }
+
+          function Assert-OwnedRelease {
+            param(
+              [Parameter(Mandatory = $true)]$Release,
+              [Parameter(Mandatory = $true)][long]$ExpectedId,
+              [Parameter(Mandatory = $true)][DateTimeOffset]$CreatedNotBefore,
+              [ValidateSet('any', 'draft', 'public')][string]$ExpectedVisibility = 'any'
+            )
+            try {
+              $CreatedAt = [DateTimeOffset]::Parse(
+                [string]$Release.created_at,
+                [Globalization.CultureInfo]::InvariantCulture,
+                [Globalization.DateTimeStyles]::AssumeUniversal
+              )
+            } catch {
+              throw 'Release created_at is missing or malformed.'
+            }
+            if ([long]$Release.id -ne $ExpectedId -or $ExpectedId -le 0 -or
+                [string]$Release.tag_name -cne $env:RELEASE_TAG -or
+                [string]$Release.name -cne $ExpectedTitle -or
+                [string]$Release.body -cne $ExpectedBody -or
+                $Release.prerelease -ne $false -or
+                $CreatedAt -lt $CreatedNotBefore -or
+                $CreatedAt -gt [DateTimeOffset]::UtcNow.AddMinutes(5)) {
+              throw 'Release does not carry this run exact immutable ownership proof.'
+            }
+            if (($ExpectedVisibility -ceq 'draft' -and $Release.draft -ne $true) -or
+                ($ExpectedVisibility -ceq 'public' -and $Release.draft -ne $false)) {
+              throw "Owned Release visibility is not '$ExpectedVisibility'."
+            }
+          }
+
+          function Get-OwnedRelease {
+            param(
+              [Parameter(Mandatory = $true)][long]$ReleaseId,
+              [Parameter(Mandatory = $true)][DateTimeOffset]$CreatedNotBefore,
+              [ValidateSet('any', 'draft', 'public')][string]$ExpectedVisibility = 'any'
+            )
+            $Release = Get-ReleaseByIdOrNull -ReleaseId $ReleaseId
+            if (-not $Release) { throw "Owned Release ID $ReleaseId no longer exists." }
+            Assert-OwnedRelease `
+              -Release $Release `
+              -ExpectedId $ReleaseId `
+              -CreatedNotBefore $CreatedNotBefore `
+              -ExpectedVisibility $ExpectedVisibility
+            return $Release
+          }
+
+          function Get-RemoteTagCommit {
+            $EncodedTag = [Uri]::EscapeDataString($env:RELEASE_TAG)
+            $Reference = (Invoke-GitHubRequest `
+              -Method 'GET' `
+              -Uri "$ApiBase/git/ref/tags/$EncodedTag" `
+              -ExpectedStatus @(200)).Json
+            if ([string]$Reference.ref -cne "refs/tags/$env:RELEASE_TAG") {
+              throw 'GitHub tag-ref response is not the exact selected tag.'
+            }
+            $ObjectType = [string]$Reference.object.type
+            $ObjectSha = ([string]$Reference.object.sha).ToLowerInvariant()
+            foreach ($Depth in 1..4) {
+              if ($ObjectSha -cnotmatch '^[0-9a-f]{40}$') { throw 'Release ref object SHA is malformed.' }
+              if ($ObjectType -ceq 'commit') { return $ObjectSha }
+              if ($ObjectType -cne 'tag') { throw 'Release ref does not resolve to a commit or annotated tag.' }
+              $TagObject = (Invoke-GitHubRequest `
+                -Method 'GET' `
+                -Uri "$ApiBase/git/tags/$ObjectSha" `
+                -ExpectedStatus @(200)).Json
+              if ([string]$TagObject.sha -cne $ObjectSha) {
+                throw 'Annotated-tag response does not bind the requested tag object.'
+              }
+              $ObjectType = [string]$TagObject.object.type
+              $ObjectSha = ([string]$TagObject.object.sha).ToLowerInvariant()
+            }
+            throw 'Annotated release tag nesting exceeded the strict bound.'
+          }
+
+          function Assert-TagOnCurrentMain {
+            if ((Get-RemoteTagCommit) -cne $env:SOURCE_COMMIT) { throw 'Remote release tag moved.' }
+            $MainRef = (Invoke-GitHubRequest `
+              -Method 'GET' `
+              -Uri "$ApiBase/git/ref/heads/main" `
+              -ExpectedStatus @(200)).Json
+            if ([string]$MainRef.ref -cne 'refs/heads/main' -or
+                [string]$MainRef.object.type -cne 'commit' -or
+                [string]$MainRef.object.sha.ToLowerInvariant() -cne $env:SOURCE_COMMIT) {
+              throw 'Release tag is not the exact current protected main commit.'
+            }
+          }
+
+          function Upload-OwnedAsset {
+            param(
+              [Parameter(Mandatory = $true)][long]$ReleaseId,
+              [Parameter(Mandatory = $true)][DateTimeOffset]$CreatedNotBefore,
+              [Parameter(Mandatory = $true)][string]$FilePath
+            )
+            [void](Get-OwnedRelease `
+              -ReleaseId $ReleaseId `
+              -CreatedNotBefore $CreatedNotBefore `
+              -ExpectedVisibility 'draft')
+            $File = Get-Item -LiteralPath $FilePath
+            $EncodedName = [Uri]::EscapeDataString($File.Name)
+            $Response = Invoke-WebRequest `
+              -Uri "https://uploads.github.com/repos/$env:GITHUB_REPOSITORY/releases/$ReleaseId/assets?name=$EncodedName" `
+              -Method 'POST' `
+              -Headers $ApiHeaders `
+              -ContentType 'application/octet-stream' `
+              -InFile $File.FullName `
+              -SkipHttpErrorCheck `
+              -TimeoutSec 300
+            if ([int]$Response.StatusCode -ne 201) {
+              throw "Exact-ID asset upload returned HTTP $([int]$Response.StatusCode)."
+            }
+            try { $Asset = [string]$Response.Content | ConvertFrom-Json } catch {
+              throw 'Exact-ID asset upload returned malformed JSON.'
+            }
+            $Digest = 'sha256:' + $ExpectedHashes[$File.Name]
+            if ([long]$Asset.id -le 0 -or [string]$Asset.name -cne $File.Name -or
+                [string]$Asset.state -cne 'uploaded' -or [long]$Asset.size -ne $File.Length -or
+                [string]$Asset.digest -cne $Digest) {
+              throw 'Exact-ID asset upload response does not bind the uploaded local file.'
+            }
+          }
+
+          function Assert-RemoteAssets {
+            param(
+              [Parameter(Mandatory = $true)][long]$ReleaseId,
+              [Parameter(Mandatory = $true)][DateTimeOffset]$CreatedNotBefore,
+              [Parameter(Mandatory = $true)][string]$Phase,
+              [Parameter(Mandatory = $true)][ValidateSet('draft', 'public')][string]$Visibility
+            )
+            $Release = Get-OwnedRelease `
+              -ReleaseId $ReleaseId `
+              -CreatedNotBefore $CreatedNotBefore `
+              -ExpectedVisibility $Visibility
+            $Assets = @($Release.assets)
+            $Names = @($Assets | ForEach-Object { [string]$_.name }) | Sort-Object
+            $Ids = @($Assets | ForEach-Object { [long]$_.id }) | Sort-Object
+            if ($Assets.Count -ne 4 -or
+                (Compare-Object @($ExpectedHashes.Keys | Sort-Object) $Names) -or
+                @($Assets | Where-Object {
+                  [long]$_.id -le 0 -or [string]$_.state -cne 'uploaded' -or
+                  [string]$_.digest -cne ('sha256:' + $ExpectedHashes[[string]$_.name]) -or
+                  [long]$_.size -ne (Get-Item -LiteralPath (Join-Path $InputRoot ([string]$_.name))).Length
+                }).Count -gt 0) {
+              throw "Owned Release asset inventory is invalid during $Phase."
+            }
+            $RemoteRoot = Join-Path $env:RUNNER_TEMP ("calorie-release-$Phase-" + [Guid]::NewGuid().ToString('N'))
+            try {
+              New-Item -ItemType Directory -Path $RemoteRoot | Out-Null
+              $DownloadHeaders = $ApiHeaders.Clone()
+              $DownloadHeaders.Accept = 'application/octet-stream'
+              foreach ($Asset in $Assets) {
+                $Target = Join-Path $RemoteRoot ([string]$Asset.name)
+                $Download = Invoke-WebRequest `
+                  -Uri ([string]$Asset.url) `
+                  -Headers $DownloadHeaders `
+                  -OutFile $Target `
+                  -PassThru `
+                  -SkipHttpErrorCheck `
+                  -TimeoutSec 300
+                if ([int]$Download.StatusCode -ne 200 -or
+                    (Get-FileHash -LiteralPath $Target -Algorithm SHA256).Hash.ToLowerInvariant() -cne
+                      $ExpectedHashes[[string]$Asset.name]) {
+                  throw "Exact-ID remote asset differs during $($Phase): $([string]$Asset.name)"
+                }
+              }
+              $Confirmed = Get-OwnedRelease `
+                -ReleaseId $ReleaseId `
+                -CreatedNotBefore $CreatedNotBefore `
+                -ExpectedVisibility $Visibility
+              $ConfirmedAssets = @($Confirmed.assets)
+              if ($ConfirmedAssets.Count -ne 4 -or
+                  (Compare-Object $Ids @($ConfirmedAssets | ForEach-Object { [long]$_.id } | Sort-Object)) -or
+                  @($ConfirmedAssets | Where-Object {
+                    [string]$_.state -cne 'uploaded' -or
+                    [string]$_.digest -cne ('sha256:' + $ExpectedHashes[[string]$_.name])
+                  }).Count -gt 0) {
+                throw "Owned Release asset identity changed during $Phase."
+              }
+            } finally {
+              if (Test-Path -LiteralPath $RemoteRoot) {
+                Remove-Item -LiteralPath $RemoteRoot -Recurse -Force
+              }
+            }
+          }
+
+          function Restore-OwnedReleaseToDraft {
+            param(
+              [Parameter(Mandatory = $true)][long]$ReleaseId,
+              [Parameter(Mandatory = $true)][DateTimeOffset]$CreatedNotBefore
+            )
+            $Observations = [Collections.Generic.List[string]]::new()
+            foreach ($Attempt in 1..4) {
+              try {
+                $Current = Get-OwnedRelease -ReleaseId $ReleaseId -CreatedNotBefore $CreatedNotBefore
+                if ($Current.draft -eq $true) { return }
+                $Patched = (Invoke-GitHubRequest `
+                  -Method 'PATCH' `
+                  -Uri "$ApiBase/releases/$ReleaseId" `
+                  -ExpectedStatus @(200) `
+                  -Body @{ draft = $true }).Json
+                Assert-OwnedRelease `
+                  -Release $Patched `
+                  -ExpectedId $ReleaseId `
+                  -CreatedNotBefore $CreatedNotBefore `
+                  -ExpectedVisibility 'draft'
+                [void](Get-OwnedRelease `
+                  -ReleaseId $ReleaseId `
+                  -CreatedNotBefore $CreatedNotBefore `
+                  -ExpectedVisibility 'draft')
+                return
+              } catch {
+                $Observations.Add("attempt $($Attempt): $($_.Exception.Message)")
+              }
+              Start-Sleep -Seconds ([Math]::Pow(2, $Attempt - 1))
+            }
+            throw "Could not confirm exact-ID private draft rollback: $($Observations -join '; ')"
+          }
+
+          Assert-TagOnCurrentMain
+          if (Get-ReleaseByTagOrNull) { throw 'A GitHub Release already exists for this tag.' }
+          $CreationWindowStart = [DateTimeOffset]::UtcNow.AddSeconds(-5)
+          $OwnedReleaseId = $null
+          try {
+            $Created = $null
+            try {
+              $Created = (Invoke-GitHubRequest `
+                -Method 'POST' `
+                -Uri "$ApiBase/releases" `
+                -ExpectedStatus @(201) `
+                -Body @{
+                  tag_name = $env:RELEASE_TAG
+                  target_commitish = $env:SOURCE_COMMIT
+                  name = $ExpectedTitle
+                  body = $ExpectedBody
+                  draft = $true
+                  prerelease = $false
+                  generate_release_notes = $false
+                  make_latest = 'false'
+                }).Json
+            } catch {
+              $CreateFailure = $_.Exception.Message
+              try {
+                $ObservedAfterAmbiguity = Get-ReleaseByTagOrNull
+              } catch {
+                throw "Release creation is ambiguous; remote observation also failed and no Release will be edited: $CreateFailure; observation: $($_.Exception.Message)"
+              }
+              if ($ObservedAfterAmbiguity) {
+                $ObservedId = [string]$ObservedAfterAmbiguity.id
+                if ($ObservedId -notmatch '^\d+$') { $ObservedId = '<malformed>' }
+                throw "Release creation is ambiguous; observed Release ID $ObservedId is not owned and will not be edited: $CreateFailure"
+              }
+              throw "Release creation failed without a remotely visible Release; no Release will be edited: $CreateFailure"
+            }
+            $CandidateReleaseId = [long]$Created.id
+            Assert-OwnedRelease `
+              -Release $Created `
+              -ExpectedId $CandidateReleaseId `
+              -CreatedNotBefore $CreationWindowStart `
+              -ExpectedVisibility 'draft'
+            $OwnedReleaseId = $CandidateReleaseId
+            foreach ($Name in $ExpectedHashes.Keys) {
+              Upload-OwnedAsset `
+                -ReleaseId $OwnedReleaseId `
+                -CreatedNotBefore $CreationWindowStart `
+                -FilePath (Join-Path $InputRoot $Name)
+            }
+            Assert-TagOnCurrentMain
+            Assert-RemoteAssets `
+              -ReleaseId $OwnedReleaseId `
+              -CreatedNotBefore $CreationWindowStart `
+              -Phase 'prepublish' `
+              -Visibility 'draft'
+            $Published = (Invoke-GitHubRequest `
+              -Method 'PATCH' `
+              -Uri "$ApiBase/releases/$OwnedReleaseId" `
+              -ExpectedStatus @(200) `
+              -Body @{ draft = $false; make_latest = 'false' }).Json
+            Assert-OwnedRelease `
+              -Release $Published `
+              -ExpectedId $OwnedReleaseId `
+              -CreatedNotBefore $CreationWindowStart `
+              -ExpectedVisibility 'public'
+            Assert-TagOnCurrentMain
+            Assert-RemoteAssets `
+              -ReleaseId $OwnedReleaseId `
+              -CreatedNotBefore $CreationWindowStart `
+              -Phase 'postpublish' `
+              -Visibility 'public'
+            Assert-TagOnCurrentMain
+            [void](Get-OwnedRelease `
+              -ReleaseId $OwnedReleaseId `
+              -CreatedNotBefore $CreationWindowStart `
+              -ExpectedVisibility 'public')
+          } catch {
+            $Failure = $_.Exception.Message
+            if ($null -ne $OwnedReleaseId) {
+              try {
+                Restore-OwnedReleaseToDraft `
+                  -ReleaseId $OwnedReleaseId `
+                  -CreatedNotBefore $CreationWindowStart
+              } catch {
+                throw "Publication entered an ambiguous exact-ID state. Original: $Failure. Rollback: $($_.Exception.Message)"
+              }
+              throw "Publication failed and owned Release ID $OwnedReleaseId was confirmed private: $Failure"
+            }
+            throw "Publication failed before exact ownership was established; no remote Release was edited: $Failure"
+          }
