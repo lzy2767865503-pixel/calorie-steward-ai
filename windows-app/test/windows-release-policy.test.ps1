@@ -48,6 +48,9 @@ Import-NamedFunction `
 Import-NamedFunction `
   -ScriptPath (Join-Path $ScriptsRoot 'windows-store-lifecycle.ps1') `
   -FunctionName 'Assert-WackReportCandidateBinding'
+Import-NamedFunction `
+  -ScriptPath (Join-Path $ScriptsRoot 'trusted-windows-sdk-tool.ps1') `
+  -FunctionName 'Assert-MicrosoftWindowsTool'
 
 $Digest = 'a' * 64
 $ValidCompactSignTool = @"
@@ -82,6 +85,22 @@ foreach ($Case in $SignToolCases) {
 $TempRoot = Join-Path ([IO.Path]::GetTempPath()) ('calorie-wack-policy-' + [Guid]::NewGuid().ToString('N'))
 [void][IO.Directory]::CreateDirectory($TempRoot)
 try {
+  $DummyTool = Join-Path $TempRoot 'dummy-sdk-tool.exe'
+  [IO.File]::WriteAllBytes($DummyTool, [byte[]](0x4d, 0x5a))
+  $TraversalError = ''
+  try {
+    $null = Assert-MicrosoftWindowsTool `
+      -Path $DummyTool `
+      -KitsRoot $TempRoot `
+      -Label 'dummy-sdk-tool.exe'
+  } catch {
+    $TraversalError = $_.Exception.Message
+  }
+  if ($TraversalError -cne 'dummy-sdk-tool.exe is outside the exact Windows Kits root or lacks Microsoft Corporation metadata.') {
+    throw "SDK tool ancestry traversal did not reach the expected metadata gate: $TraversalError"
+  }
+  Write-Host 'sdk-tool-file-ancestry: ACCEPT'
+
   $Padding = 'x' * 700
   $WackCases = @(
     @{ Name='wack-valid'; Pass=$true; Xml="<REPORT OVERALL_RESULT='PASS' PARTIAL_RUN='FALSE' LATEST_VERSION='TRUE' VERSION='10.0.26100.1'><TEST INDEX='1' NAME='Static validation'><RESULT>PASS</RESULT></TEST><TEST INDEX='2' NAME='Optional capability'><RESULT>NOT APPLICABLE</RESULT></TEST><!--$Padding--></REPORT>" },
@@ -138,4 +157,4 @@ try {
   if (Test-Path -LiteralPath $TempRoot) { [IO.Directory]::Delete($TempRoot, $true) }
 }
 
-Write-Host 'Windows release policy fixtures: 19/19 expected outcomes.'
+Write-Host 'Windows release policy fixtures: 20/20 expected outcomes.'

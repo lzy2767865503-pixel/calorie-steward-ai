@@ -6,7 +6,10 @@ function Assert-MicrosoftWindowsTool {
   )
 
   $Tool = Get-Item -LiteralPath $Path -Force
-  $Current = $Tool
+  if (($Tool.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0) {
+    throw "$Label path contains a reparse point."
+  }
+  $Current = $Tool.Directory
   $ReachedRoot = $false
   while ($Current) {
     $CurrentPath = [IO.Path]::GetFullPath($Current.FullName).TrimEnd('\')
