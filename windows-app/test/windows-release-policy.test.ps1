@@ -88,6 +88,9 @@ try {
     @{ Name='wack-stale-kit'; Pass=$false; Xml="<REPORT OVERALL_RESULT='PASS' PARTIAL_RUN='FALSE' LATEST_VERSION='FALSE' VERSION='10.0.26100.1'><TEST INDEX='1' NAME='A'><RESULT>PASS</RESULT></TEST><!--$Padding--></REPORT>" },
     @{ Name='wack-partial-run'; Pass=$false; Xml="<REPORT OVERALL_RESULT='PASS' PARTIAL_RUN='TRUE' LATEST_VERSION='TRUE' VERSION='10.0.26100.1'><TEST INDEX='1' NAME='A'><RESULT>PASS</RESULT></TEST><!--$Padding--></REPORT>" },
     @{ Name='wack-overall-fail'; Pass=$false; Xml="<REPORT OVERALL_RESULT='FAIL' PARTIAL_RUN='FALSE' LATEST_VERSION='TRUE' VERSION='10.0.26100.1'><TEST INDEX='1' NAME='A'><RESULT>PASS</RESULT></TEST><!--$Padding--></REPORT>" },
+    @{ Name='wack-test-status-fail'; Pass=$false; Xml="<REPORT OVERALL_RESULT='PASS' PARTIAL_RUN='FALSE' LATEST_VERSION='TRUE' VERSION='10.0.26100.1'><TEST INDEX='1' NAME='A' STATUS='FAIL'><RESULT>PASS</RESULT></TEST><!--$Padding--></REPORT>" },
+    @{ Name='wack-requirement-outcome-error'; Pass=$false; Xml="<REPORT OVERALL_RESULT='PASS' PARTIAL_RUN='FALSE' LATEST_VERSION='TRUE' VERSION='10.0.26100.1'><REQUIREMENT OUTCOME='ERROR'><TEST INDEX='1' NAME='A'><RESULT>PASS</RESULT></TEST></REQUIREMENT><!--$Padding--></REPORT>" },
+    @{ Name='wack-status-result-conflict'; Pass=$false; Xml="<REPORT OVERALL_RESULT='PASS' PARTIAL_RUN='FALSE' LATEST_VERSION='TRUE' VERSION='10.0.26100.1'><TEST INDEX='1' NAME='A'><STATUS>FAILED</STATUS><RESULT>PASS</RESULT></TEST><!--$Padding--></REPORT>" },
     @{ Name='wack-empty-result'; Pass=$false; Xml="<REPORT OVERALL_RESULT='PASS' PARTIAL_RUN='FALSE' LATEST_VERSION='TRUE' VERSION='10.0.26100.1'><TEST INDEX='1' NAME='A'><RESULT></RESULT></TEST><!--$Padding--></REPORT>" },
     @{ Name='wack-duplicate-index'; Pass=$false; Xml="<REPORT OVERALL_RESULT='PASS' PARTIAL_RUN='FALSE' LATEST_VERSION='TRUE' VERSION='10.0.26100.1'><TEST INDEX='1' NAME='A'><RESULT>PASS</RESULT></TEST><TEST INDEX='1' NAME='B'><RESULT>PASS</RESULT></TEST><!--$Padding--></REPORT>" },
     @{ Name='wack-duplicate-name'; Pass=$false; Xml="<REPORT OVERALL_RESULT='PASS' PARTIAL_RUN='FALSE' LATEST_VERSION='TRUE' VERSION='10.0.26100.1'><TEST INDEX='1' NAME='A'><RESULT>PASS</RESULT></TEST><TEST INDEX='2' NAME='A'><RESULT>PASS</RESULT></TEST><!--$Padding--></REPORT>" }
@@ -135,4 +138,4 @@ try {
   if (Test-Path -LiteralPath $TempRoot) { [IO.Directory]::Delete($TempRoot, $true) }
 }
 
-Write-Host 'Windows release policy fixtures: 16/16 expected outcomes.'
+Write-Host 'Windows release policy fixtures: 19/19 expected outcomes.'
