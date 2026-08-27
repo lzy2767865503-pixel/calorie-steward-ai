@@ -150,14 +150,14 @@ test("public Windows workflows never upload unsigned binaries and require LAI ZE
     "both WACK rounds must consume the exact same frozen signed AppX",
   );
   assert.match(qaWorkflow, /group: trusted-windows-interactive-calorie-store/);
-  assert.match(qaWorkflow, /- ephemeral\n\s+- windows-11-24h2/);
+  assert.match(qaWorkflow, /- ephemeral\r?\n\s+- windows-11-24h2/);
   assert.match(qaWorkflow, /signedAppxSha256 -cne \$Second\.signedAppxSha256/);
   assert.match(
     qaWorkflow,
     /temporaryCertificateThumbprint -cne \$Second\.temporaryCertificateThumbprint/,
   );
   for (const uploadBlock of qaWorkflow.split(/uses: actions\/upload-artifact@/).slice(1)) {
-    const step = uploadBlock.split(/\n\s+- name:/, 1)[0];
+    const step = uploadBlock.split(/\r?\n\s+- name:/, 1)[0];
     assert.doesNotMatch(step, /\*\.(?:exe|dll|zip|appx|msix|pfx|p12|cer|key)/i);
   }
 
@@ -177,9 +177,9 @@ test("public Windows workflows never upload unsigned binaries and require LAI ZE
   assert.match(releaseWorkflow, /-PortableOnly/g);
   assert.match(releaseWorkflow, /build:github-portable/);
   assert.match(releaseWorkflow, /no NSIS installer/i);
-  const [signedReleaseJob, isolatedPublisher] = releaseWorkflow.split(/\n  publish-release:/);
+  const [signedReleaseJob, isolatedPublisher] = releaseWorkflow.split(/\r?\n  publish-release:/);
   assert.ok(isolatedPublisher, "release workflow must have an isolated publisher job");
-  assert.match(releaseWorkflow, /permissions:\n  contents: read/);
+  assert.match(releaseWorkflow, /permissions:\r?\n  contents: read/);
   assert.doesNotMatch(signedReleaseJob, /contents: write/);
   assert.match(signedReleaseJob, /actions\/upload-artifact@/);
   assert.match(isolatedPublisher, /contents: write/);
@@ -231,7 +231,7 @@ test("public Windows workflows never upload unsigned binaries and require LAI ZE
   );
   assert.equal((prepareStoreCandidate.match(/ sign \/sha1 /g) ?? []).length, 1);
   assert.match(prepareStoreCandidate, /KeyExportPolicy NonExportable/);
-  assert.match(cleanupStoreCandidate, /Remove-Item[^\n]*-DeleteKey/);
+  assert.match(cleanupStoreCandidate, /Remove-Item[^\r\n]*-DeleteKey/);
   assert.match(cleanupStoreCandidate, /CngKey\]::Open/);
   assert.match(cleanupStoreCandidate, /ReparsePoint/);
   assert.match(trustedWindowsSdkTool, /versioned Windows SDK x64 directory/);
