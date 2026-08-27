@@ -480,8 +480,16 @@ function Invoke-PackagedUiSmoke {
     $env:CALORIE_EXPECTED_USER_DATA = $ExpectedUserData
   }
   try {
-    $SmokeOutput = @(& node windows-app/scripts/electron-smoke.cjs 2>&1)
-    $SmokeExitCode = $LASTEXITCODE
+    $PreviousNativeErrorPreference = $PSNativeCommandUseErrorActionPreference
+    try {
+      # Capture the smoke runner's own bounded diagnostic instead of allowing
+      # PowerShell 7 to throw on the native exit code before it can be recorded.
+      $PSNativeCommandUseErrorActionPreference = $false
+      $SmokeOutput = @(& node windows-app/scripts/electron-smoke.cjs 2>&1)
+      $SmokeExitCode = $LASTEXITCODE
+    } finally {
+      $PSNativeCommandUseErrorActionPreference = $PreviousNativeErrorPreference
+    }
     if ($SmokeExitCode -ne 0) {
       $Diagnostic = ($SmokeOutput | ForEach-Object { [string]$_ }) -join [Environment]::NewLine
       if ($Diagnostic.Length -gt 4000) { $Diagnostic = $Diagnostic.Substring($Diagnostic.Length - 4000) }
