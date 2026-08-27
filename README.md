@@ -100,7 +100,7 @@ npm ci
 npm run verify
 ```
 
-商店构建会在 Partner Center 预留名称后注入真实 `WINDOWS_IDENTITY_NAME` 与 `WINDOWS_PUBLISHER`，缺少任一值即停止。GitHub Actions 的 Pass A 负责全新 Windows 构建、183 项客户端测试、桌面安全测试、依赖审计和打包；Pass B 从上一轮哈希锁定的 ZIP 启动已打包程序。正式发布仍必须补做干净 Windows 11 标准用户下的文件选择、SQLite/DPAPI、导出、缩放、安装/升级/卸载、Defender 与 WACK 交互验收。**在这些门禁和 Microsoft 认证完成前，本段描述的是发布候选代码，不是已经上架或已通过认证的声明。** Windows 隐私政策见 [docs/privacy/windows.md](docs/privacy/windows.md)。
+商店产品已预留（Store ID `9PBQ8LD3VKTS`，Identity `LAIZEYU.CalorieStewardbyLAIZEYU`）；商店构建硬锁该 Identity 与本账户的精确技术 `WINDOWS_PUBLISHER`，缺少或不匹配即停止。GitHub Actions 在同一个受控 Windows 作业内构建一次私有候选并连续执行 Pass A、Pass B：两轮都验证同一哈希的打包 React UI、`LAI ZEYU（来泽宇）` 署名、便携启动、安装启动和卸载清理；未签名 EXE/ZIP 与原始证据都不上传，只写入规范化 Job Summary。商店手动门在专用交互式 Windows runner 上对精确 AppX 执行带硬超时的严格 WACK。公开 GitHub Windows 成品刻意只发便携 ZIP，不发布含未签名第三方 NSIS helper PE 的安装器；ZIP 及解包 ASAR 内每个 PE 都必须具有可信时间戳，且证书 CN/SimpleName 精确为 `LAI ZEYU` 或 `来泽宇`。正式发布仍必须补做干净 Windows 11 标准用户下的文件选择、SQLite/DPAPI、导出、缩放、安装/升级/卸载、Defender 与交互验收。**在这些门禁和 Microsoft 认证完成前，本段描述的是发布候选代码，不是已经上架或已通过认证的声明。** Windows 隐私政策见 [docs/privacy/windows.md](docs/privacy/windows.md)。
 
 ### 开发者、AI 协作与归属
 
@@ -178,7 +178,7 @@ npm ci
 npm run verify
 ```
 
-The Store build injects the exact `WINDOWS_IDENTITY_NAME` and `WINDOWS_PUBLISHER` obtained after Partner Center name reservation and fails closed if either is missing. GitHub Actions Pass A performs a clean Windows build, the 183 client tests, desktop-security tests, dependency audit, and packaging; Pass B launches the hash-locked packaged ZIP. A clean Windows 11 standard-user run must still verify the file picker, SQLite/DPAPI, export, scaling, install/upgrade/uninstall, Defender, and WACK before release. **Until those gates and Microsoft certification complete, this is release-candidate code, not a claim that the app is listed or certified.** See the [Windows privacy policy](docs/privacy/windows.md).
+The Store product is reserved (Store ID `9PBQ8LD3VKTS`, Identity `LAIZEYU.CalorieStewardbyLAIZEYU`). The Store build hard-locks that Identity and this account's exact technical `WINDOWS_PUBLISHER`, failing closed if either is missing or different. One controlled Windows job builds a private NSIS/ZIP candidate once and runs Pass A and Pass B sequentially against identical hashes, including packaged React DOM, exact `LAI ZEYU（来泽宇）` attribution, portable launch, install, installed launch, and uninstall cleanup. Those unsigned private bytes and their evidence are never uploaded; only canonical results are written to the job summary. The manual Store gate runs on a dedicated active-desktop Windows runner and executes bounded, strict WACK against the exact AppX. The public GitHub edition is intentionally a portable ZIP, not NSIS: every PE recursively found in the ZIP and its ASAR content must have a trusted timestamped Authenticode signature whose signer CN/SimpleName is exactly `LAI ZEYU` or `来泽宇`, and the same ZIP passes two process-bound UI rounds before a draft is published. A clean Windows 11 standard-user run must still verify the file picker, SQLite/DPAPI, export, scaling, install/upgrade/uninstall, and Defender before release. **Until those gates and Microsoft certification complete, this is release-candidate code, not a claim that the app is listed or certified.** See the [Windows privacy policy](docs/privacy/windows.md).
 
 ### Authorship and responsible AI-assisted development
 

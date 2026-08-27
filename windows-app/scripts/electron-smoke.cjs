@@ -1,14 +1,32 @@
 "use strict";
 
 const { spawn, spawnSync } = require("node:child_process");
+const crypto = require("node:crypto");
 const fs = require("node:fs/promises");
 const os = require("node:os");
 const path = require("node:path");
 
-const electronBinary = require("electron");
+const packagedBinary = process.env.CALORIE_ELECTRON_BINARY || "";
+const electronBinary = packagedBinary || require("electron");
 const projectRoot = path.resolve(__dirname, "..");
-const debuggingPort = 49231;
+const debuggingPort = Number(process.env.CALORIE_DEBUGGING_PORT || 49231);
 const output = [];
+
+async function sha256File(filePath) {
+  const hash = crypto.createHash("sha256");
+  const handle = await fs.open(filePath, "r");
+  try {
+    const buffer = Buffer.allocUnsafe(1024 * 1024);
+    let bytesRead = 0;
+    do {
+      ({ bytesRead } = await handle.read(buffer, 0, buffer.length, null));
+      if (bytesRead > 0) hash.update(buffer.subarray(0, bytesRead));
+    } while (bytesRead > 0);
+  } finally {
+    await handle.close();
+  }
+  return hash.digest("hex");
+}
 
 function delay(milliseconds) {
   return new Promise((resolve) => setTimeout(resolve, milliseconds));
@@ -99,6 +117,21 @@ async function evaluatePageWithRetry(expression) {
   throw lastError || new Error("Electron page did not expose a stable execution context.");
 }
 
+async function readReadinessMarker(candidateRoots) {
+  let lastError = null;
+  for (let attempt = 0; attempt < 40; attempt += 1) {
+    for (const root of candidateRoots.filter(Boolean)) {
+      try {
+        return JSON.parse(await fs.readFile(path.join(root, "ui_ready.json"), "utf8"));
+      } catch (error) {
+        lastError = error;
+      }
+    }
+    await delay(250);
+  }
+  throw lastError || new Error("The packaged UI readiness marker was not created.");
+}
+
 async function stopProcess(child) {
   if (child.exitCode !== null) return;
   if (process.platform === "win32") {
@@ -115,18 +148,30 @@ async function stopProcess(child) {
 }
 
 async function main() {
-  const temporaryProfile = await fs.mkdtemp(path.join(os.tmpdir(), "calorie-electron-smoke-"));
+  const useDefaultProfile = process.env.CALORIE_SMOKE_USE_DEFAULT_PROFILE === "1";
+  const temporaryProfile = useDefaultProfile
+    ? null
+    : await fs.mkdtemp(path.join(os.tmpdir(), "calorie-electron-smoke-"));
+  const launchArguments = [
+    `--remote-debugging-port=${debuggingPort}`,
+    "--disable-gpu",
+  ];
+  const qaNonce = process.env.CALORIE_QA_NONCE || crypto.randomBytes(16).toString("hex");
+  if (!/^[a-f0-9]{32}$/.test(qaNonce)) {
+    throw new Error("CALORIE_QA_NONCE must be a 128-bit lowercase hexadecimal value.");
+  }
+  if (!packagedBinary) launchArguments.unshift(".");
+  if (temporaryProfile) launchArguments.push(`--user-data-dir=${temporaryProfile}`);
   const child = spawn(
     electronBinary,
-    [
-      ".",
-      `--remote-debugging-port=${debuggingPort}`,
-      `--user-data-dir=${temporaryProfile}`,
-      "--disable-gpu",
-    ],
+    launchArguments,
     {
       cwd: projectRoot,
-      env: { ...process.env, ELECTRON_DISABLE_SECURITY_WARNINGS: "false" },
+      env: {
+        ...process.env,
+        CALORIE_QA_NONCE: qaNonce,
+        ELECTRON_DISABLE_SECURITY_WARNINGS: "false",
+      },
       stdio: ["ignore", "pipe", "pipe"],
     },
   );
@@ -139,7 +184,14 @@ async function main() {
         for (let attempt = 0; attempt < 80; attempt += 1) {
           const bridge = window.calorieStewardDesktop;
           const text = document.body?.innerText || "";
-          if (bridge?.platform === "windows" && text.length > 100) {
+          if (
+            bridge?.platform === "windows" &&
+            text.length > 100 &&
+            /Calorie Steward|卡路里管家/.test(text) &&
+            text.includes("LAI ZEYU") &&
+            text.includes("来泽宇") &&
+            /Settings|privacy|设置|隐私/i.test(text)
+          ) {
             const smokeKey = "diet-steward.api-secret.v1.provider-desktop-smoke";
             const smokeValue = "desktop-smoke-placeholder-credential";
             await bridge.secrets.set(smokeKey, smokeValue);
@@ -203,6 +255,42 @@ async function main() {
     if (/browser preview|浏览器只用于检查首页设计/i.test(result.text)) {
       throw new Error("Electron was incorrectly gated as a browser preview.");
     }
+    if (!/Calorie Steward|卡路里管家/.test(result.text)) {
+      throw new Error("The packaged UI does not show the product name.");
+    }
+    if (!result.text.includes("LAI ZEYU") || !result.text.includes("来泽宇")) {
+      throw new Error("The packaged UI does not show the exact bilingual author.");
+    }
+    if (!/Settings|privacy|设置|隐私/i.test(result.text)) {
+      throw new Error("The packaged UI does not expose its settings/privacy entry.");
+    }
+    const markerRoots = temporaryProfile
+      ? [temporaryProfile]
+      : [
+          process.env.CALORIE_EXPECTED_USER_DATA,
+          path.join(process.env.APPDATA || "", "Calorie Steward by LAI ZEYU"),
+          path.join(process.env.APPDATA || "", "calorie-steward-windows"),
+        ];
+    const marker = await readReadinessMarker(markerRoots);
+    const expectedExecutablePath = path.resolve(electronBinary);
+    const expectedExecutableSha256 = await sha256File(expectedExecutablePath);
+    if (
+      marker.schemaVersion !== 2 ||
+      marker.product !== "Calorie Steward by LAI ZEYU" ||
+      marker.author !== "LAI ZEYU（来泽宇）" ||
+      marker.version !== "1.2.3" ||
+      marker.executableSha256 !== expectedExecutableSha256 ||
+      path.resolve(marker.executablePath || "").toLowerCase() !==
+        expectedExecutablePath.toLowerCase() ||
+      marker.processId !== child.pid ||
+      marker.origin !== "http://127.0.0.1:47823" ||
+      marker.qaNonce !== qaNonce ||
+      Number.isNaN(Date.parse(marker.createdAtUtc || "")) ||
+      marker.reactRootReady !== true ||
+      marker.privacyEntryReady !== true
+    ) {
+      throw new Error("The packaged UI readiness marker is invalid.");
+    }
     if (process.env.CALORIE_SMOKE_SCREENSHOT) {
       const screenshot = await cdpCommand(page.webSocketDebuggerUrl, "Page.captureScreenshot", {
         format: "png",
@@ -219,7 +307,9 @@ async function main() {
     throw error;
   } finally {
     await stopProcess(child);
-    await fs.rm(temporaryProfile, { recursive: true, force: true });
+    if (temporaryProfile) {
+      await fs.rm(temporaryProfile, { recursive: true, force: true });
+    }
   }
 }
 

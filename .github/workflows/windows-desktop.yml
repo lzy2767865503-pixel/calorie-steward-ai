@@ -13,18 +13,19 @@ on:
 permissions:
   contents: read
 
-concurrency:
-  group: windows-desktop-${{ github.ref }}
-  cancel-in-progress: true
-
 jobs:
-  pass-a-build-and-test:
-    name: Pass A - clean Windows build and tests
+  private-two-pass-qa:
+    name: Private candidate - Pass A and Pass B on identical bytes
     runs-on: windows-latest
-    timeout-minutes: 45
+    timeout-minutes: 70
+    concurrency:
+      group: calorie-private-windows-${{ github.ref }}
+      cancel-in-progress: true
     steps:
       - name: Check out source
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
       - name: Set up Node.js
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
@@ -45,6 +46,10 @@ jobs:
         run: npm --prefix windows-app run verify
         env:
           CALORIE_SMOKE_SCREENSHOT: evidence/windows-setup.png
+
+      - name: Reject malformed WACK and Authenticode policy evidence
+        shell: pwsh
+        run: ./windows-app/test/windows-release-policy.test.ps1
 
       - name: Build unsigned QA package
         run: npm --prefix windows-app run build:github
@@ -98,149 +103,98 @@ jobs:
             Get-ChildItem windows-app/release -File -Filter '*.zip'
             Get-ChildItem windows-app/release -File -Filter '*.cdx.json'
           )
-          if ($releaseFiles.Count -lt 4) { throw "Expected installer, ZIP, and two SBOMs" }
+          if ($releaseFiles.Count -ne 4) { throw "Expected exactly one installer, one ZIP, and two SBOMs" }
           $releaseFiles | Get-FileHash -Algorithm SHA256 |
             ForEach-Object { "$($_.Hash.ToLower())  $($_.Path | Split-Path -Leaf)" } |
             Set-Content windows-app/release/SHA256SUMS.txt
 
-      - name: Upload QA artifacts only
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
-        with:
-          name: calorie-steward-windows-pass-a
-          path: |
-            windows-app/release/*.exe
-            windows-app/release/*.zip
-            windows-app/release/*.cdx.json
-            windows-app/release/SHA256SUMS.txt
-            windows-app/evidence/windows-setup.png
-          if-no-files-found: error
-          retention-days: 14
-
-  pass-b-installed-smoke:
-    name: Pass B - packaged executable smoke
-    needs: pass-a-build-and-test
-    runs-on: windows-latest
-    timeout-minutes: 25
-    steps:
-      - name: Check out source
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-
-      - name: Download Pass A artifact
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
-        with:
-          name: calorie-steward-windows-pass-a
-          path: qa-package
-
-      - name: Verify hashes, install, launch, probe, and uninstall
+      - name: Pass A - packaged UI, install, author, hash, and uninstall
         shell: pwsh
-        run: |
-          New-Item -ItemType Directory -Path qa-logs -Force | Out-Null
-          $checksumFile = Get-ChildItem qa-package -Recurse -Filter 'SHA256SUMS.txt' | Select-Object -First 1
-          if (-not $checksumFile) { throw "Checksum file missing" }
-          $artifactDirectory = $checksumFile.Directory.FullName
-          $lines = Get-Content $checksumFile.FullName
-          foreach ($line in $lines) {
-            $parts = $line -split '  ', 2
-            if ($parts.Count -ne 2) { throw "Invalid checksum line" }
-            $actual = (Get-FileHash (Join-Path $artifactDirectory $parts[1]) -Algorithm SHA256).Hash.ToLower()
-            if ($actual -ne $parts[0]) { throw "Checksum mismatch: $($parts[1])" }
-          }
-          $zip = Get-ChildItem $artifactDirectory -Filter '*.zip' | Select-Object -First 1
-          if (-not $zip) { throw "Portable ZIP missing" }
-          Expand-Archive $zip.FullName -DestinationPath unpacked
-          $portableExe = Get-ChildItem unpacked -Recurse -Filter '*.exe' |
-            Where-Object { $_.Name -like 'Calorie Steward*' } |
-            Select-Object -First 1
-          if (-not $portableExe) { throw "Packaged executable missing" }
-          $portableProcess = Start-Process $portableExe.FullName -PassThru `
-            -RedirectStandardOutput qa-logs/portable.stdout.log `
-            -RedirectStandardError qa-logs/portable.stderr.log
-          Start-Sleep -Seconds 10
-          if ($portableProcess.HasExited) {
-            Get-Content qa-logs/portable.stdout.log, qa-logs/portable.stderr.log -ErrorAction SilentlyContinue | Out-Host
-            throw "Portable app exited during smoke test with code $($portableProcess.ExitCode)"
-          }
-          $health = Invoke-WebRequest http://127.0.0.1:47823/ -UseBasicParsing
-          if ($health.StatusCode -ne 200) { throw "Portable app local UI probe failed" }
-          & taskkill.exe /PID $portableProcess.Id /T /F | Out-Host
-          Start-Sleep -Seconds 2
+        run: ./windows-app/scripts/windows-lifecycle.ps1 -CandidateDirectory ./windows-app/release -Round 1 -EvidenceDirectory ./windows-app/evidence/native-round-1
 
-          $installer = Get-ChildItem $artifactDirectory -Filter '*.exe' | Select-Object -First 1
-          if (-not $installer) { throw "NSIS installer missing" }
-          $installResult = Start-Process $installer.FullName -ArgumentList '/S' -Wait -PassThru
-          if ($installResult.ExitCode -ne 0) { throw "Silent install failed" }
-          $installedExe = Get-ChildItem (Join-Path $env:LOCALAPPDATA 'Programs') -Recurse -Filter 'Calorie Steward by LAI ZEYU.exe' |
-            Select-Object -First 1
-          if (-not $installedExe) { throw "Installed executable missing" }
-          $userDataCandidates = @(
-            (Join-Path $env:APPDATA 'Calorie Steward by LAI ZEYU'),
-            (Join-Path $env:APPDATA 'calorie-steward-windows')
-          )
-          $installedProcess = Start-Process $installedExe.FullName -PassThru `
-            -RedirectStandardOutput qa-logs/installed.stdout.log `
-            -RedirectStandardError qa-logs/installed.stderr.log
-          Start-Sleep -Seconds 10
-          if ($installedProcess.HasExited) {
-            Get-Content qa-logs/installed.stdout.log, qa-logs/installed.stderr.log -ErrorAction SilentlyContinue | Out-Host
-            throw "Installed app exited during smoke test with code $($installedProcess.ExitCode)"
-          }
-          $installedHealth = Invoke-WebRequest http://127.0.0.1:47823/ -UseBasicParsing
-          if ($installedHealth.StatusCode -ne 200) { throw "Installed app local UI probe failed" }
-          & taskkill.exe /PID $installedProcess.Id /T /F | Out-Host
-          Start-Sleep -Seconds 2
-          $createdUserData = @($userDataCandidates | Where-Object { Test-Path -LiteralPath $_ })
-          if ($createdUserData.Count -lt 1) {
-            throw "Installed app did not create an expected Electron user-data directory"
-          }
-          $uninstaller = Get-ChildItem $installedExe.Directory -Filter 'Uninstall*.exe' | Select-Object -First 1
-          if (-not $uninstaller) { throw "Uninstaller missing" }
-          $uninstallResult = Start-Process $uninstaller.FullName -ArgumentList '/S' -Wait -PassThru
-          if ($uninstallResult.ExitCode -ne 0) { throw "Silent uninstall failed" }
-          if (Test-Path $installedExe.FullName) { throw "Executable remained after uninstall" }
-          foreach ($userDataPath in $createdUserData) {
-            if (Test-Path -LiteralPath $userDataPath) {
-              throw "NSIS user data remained after uninstall: $userDataPath"
-            }
-          }
+      - name: Pass B - repeat on the exact same private bytes
+        shell: pwsh
+        run: ./windows-app/scripts/windows-lifecycle.ps1 -CandidateDirectory ./windows-app/release -Round 2 -EvidenceDirectory ./windows-app/evidence/native-round-2
 
-      - name: Record native gates still requiring interactive Windows
+      - name: Record remaining interactive Windows gates
         shell: pwsh
         run: |
           @'
-          Automated Pass B confirms hash integrity, portable launch, NSIS install,
-          installed launch, loopback UI probe, and uninstall.
+          Automated Pass A and Pass B both confirm the same private candidate hashes,
+          packaged React DOM, exact LAI ZEYU（来泽宇） authorship, portable launch,
+          NSIS install, installed launch, UI marker/executable hash, and uninstall.
           Release remains blocked until an interactive clean Windows 11 standard-user run passes:
           file picker, JPEG re-encode, SQLite persistence, DPAPI credential replace/delete,
           JSON save dialog, scaling/accessibility, install/upgrade/uninstall, Defender, and WACK.
-          '@ | Set-Content WINDOWS_INTERACTIVE_GATES.txt
+          Unsigned EXE/ZIP bytes stay inside this job and are never uploaded from the public repository.
+          A public GitHub binary requires a trusted timestamped certificate whose signer CN/SimpleName
+          is exactly LAI ZEYU or 来泽宇.
+          '@ | Set-Content windows-app/evidence/WINDOWS_INTERACTIVE_GATES.txt
 
-      - name: Upload Pass B evidence
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
-        with:
-          name: calorie-steward-windows-pass-b
-          path: WINDOWS_INTERACTIVE_GATES.txt
-          retention-days: 14
-
-      - name: Upload Pass B startup diagnostics
+      - name: Write canonical two-pass result to the job summary
         if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
-        with:
-          name: calorie-steward-windows-pass-b-diagnostics
-          path: qa-logs
-          if-no-files-found: warn
-          retention-days: 14
+        shell: pwsh
+        run: |
+          $FirstPath = 'windows-app/evidence/native-round-1/lifecycle.json'
+          $SecondPath = 'windows-app/evidence/native-round-2/lifecycle.json'
+          if ((Test-Path -LiteralPath $FirstPath) -and (Test-Path -LiteralPath $SecondPath)) {
+            $First = Get-Content -LiteralPath $FirstPath -Raw | ConvertFrom-Json
+            $Second = Get-Content -LiteralPath $SecondPath -Raw | ConvertFrom-Json
+            if ($First.round -ne 1 -or $Second.round -ne 2 -or
+                $First.installerSha256 -cne $Second.installerSha256 -or
+                $First.portableZipSha256 -cne $Second.portableZipSha256 -or
+                $First.author -cne 'LAI ZEYU（来泽宇）' -or $Second.author -cne $First.author) {
+              throw "Canonical lifecycle evidence does not bind two rounds to identical candidate bytes."
+            }
+            @(
+              '## Calorie Steward private Windows QA',
+              '',
+              '- Author: `LAI ZEYU（来泽宇）`',
+              '- Pass A: PASS',
+              '- Pass B: PASS',
+              "- Installer SHA-256: ``$($First.installerSha256)``",
+              "- Portable ZIP SHA-256: ``$($First.portableZipSha256)``",
+              '- Unsigned package bytes: kept inside the ephemeral job and not uploaded'
+            ) >> $env:GITHUB_STEP_SUMMARY
+          } else {
+            @(
+              '## Calorie Steward private Windows QA',
+              '',
+              '- Result: BLOCKED or FAILED before two complete lifecycle records',
+              '- No unsigned package bytes were uploaded'
+            ) >> $env:GITHUB_STEP_SUMMARY
+          }
+
+      - name: Remove private candidate and evidence bytes
+        if: always()
+        shell: pwsh
+        run: |
+          foreach ($Path in @('windows-app/release', 'windows-app/evidence')) {
+            if (Test-Path -LiteralPath $Path) { Remove-Item -LiteralPath $Path -Recurse -Force }
+            if (Test-Path -LiteralPath $Path) { throw "Private QA cleanup failed: $Path" }
+          }
 
   store-package-sideload-test:
     name: Store package - exact identity and temporary-signature sideload
-    if: github.event_name == 'workflow_dispatch' && inputs.build_store_package
-    runs-on: windows-latest
-    timeout-minutes: 45
+    if: >-
+      github.event_name == 'workflow_dispatch' &&
+      github.ref == 'refs/heads/main' &&
+      github.actor == 'lzy2767865503-pixel' &&
+      inputs.build_store_package
+    runs-on: [self-hosted, Windows, X64, interactive-wack]
+    timeout-minutes: 330
+    environment: windows-store-validation
+    concurrency:
+      group: calorie-store-self-hosted
+      cancel-in-progress: false
     env:
       WINDOWS_IDENTITY_NAME: ${{ vars.CALORIE_WINDOWS_IDENTITY_NAME }}
       WINDOWS_PUBLISHER: ${{ vars.WINDOWS_PUBLISHER }}
     steps:
       - name: Check out source
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
       - name: Require Partner Center identity variables
         shell: pwsh
@@ -267,6 +221,10 @@ jobs:
           npm --prefix mobile-app ci
           npm --prefix windows-app ci
 
+      - name: Reject malformed WACK and Authenticode policy evidence
+        shell: pwsh
+        run: ./windows-app/test/windows-release-policy.test.ps1
+
       - name: Build exact unsigned Store AppX
         run: npm --prefix windows-app run build:store
 
@@ -278,100 +236,82 @@ jobs:
           npm --prefix windows-app sbom --sbom-format cyclonedx --sbom-type application |
             Set-Content windows-app/release/calorie-steward-electron.cdx.json -Encoding utf8
 
-      - name: Inspect manifest, temporarily sign, install, launch, and remove
+      - name: Store Pass A - WACK, manifest, UI, install, and uninstall
         shell: pwsh
         run: |
-          $appx = Get-ChildItem windows-app/release -Filter '*.appx' | Select-Object -First 1
-          if (-not $appx) { throw "Store AppX missing" }
-          $windowsKits = Join-Path ${env:ProgramFiles(x86)} 'Windows Kits\10\bin'
-          $makeAppx = Get-ChildItem $windowsKits -Recurse -Filter makeappx.exe |
-            Where-Object { $_.FullName -like '*\x64\makeappx.exe' } |
-            Sort-Object FullName -Descending |
-            Select-Object -First 1
-          $signTool = Get-ChildItem $windowsKits -Recurse -Filter signtool.exe |
-            Where-Object { $_.FullName -like '*\x64\signtool.exe' } |
-            Sort-Object FullName -Descending |
-            Select-Object -First 1
-          if (-not $makeAppx -or -not $signTool) { throw "Windows SDK packaging tools missing" }
-          New-Item -ItemType Directory -Path manifest-inspect | Out-Null
-          & $makeAppx.FullName unpack /p $appx.FullName /d manifest-inspect | Out-Host
-          if ($LASTEXITCODE -ne 0) { throw "AppX unpack failed" }
-          [xml]$manifest = Get-Content manifest-inspect/AppxManifest.xml
-          $namespaces = New-Object System.Xml.XmlNamespaceManager($manifest.NameTable)
-          $namespaces.AddNamespace('f', 'http://schemas.microsoft.com/appx/manifest/foundation/windows10')
-          $namespaces.AddNamespace('r', 'http://schemas.microsoft.com/appx/manifest/foundation/windows10/restrictedcapabilities')
-          $identity = $manifest.SelectSingleNode('/f:Package/f:Identity', $namespaces)
-          if ($identity.Name -ne $env:WINDOWS_IDENTITY_NAME) { throw "Identity.Name mismatch" }
-          if ($identity.Publisher -ne $env:WINDOWS_PUBLISHER) { throw "Identity.Publisher mismatch" }
-          if ($identity.ProcessorArchitecture -ne 'x64') { throw "Store package is not x64" }
-          if (-not $manifest.SelectSingleNode("/f:Package/f:Capabilities/r:Capability[@Name='runFullTrust']", $namespaces)) {
-            throw "runFullTrust capability missing"
-          }
-          $languages = @($manifest.SelectNodes('/f:Package/f:Resources/f:Resource', $namespaces) | ForEach-Object { $_.Language })
-          if ('en-US' -notin $languages -or 'zh-CN' -notin $languages) { throw "Declared languages incomplete" }
-          foreach ($locale in @('en-US.pak', 'zh-CN.pak')) {
-            if (-not (Test-Path -LiteralPath (Join-Path 'manifest-inspect/locales' $locale) -PathType Leaf)) {
-              throw "Store package Electron locale missing: $locale"
+          $appxFiles = @(Get-ChildItem windows-app/release -File -Filter '*.appx')
+          if ($appxFiles.Count -ne 1) { throw "Expected exactly one Store AppX" }
+          ./windows-app/scripts/windows-store-lifecycle.ps1 `
+            -AppxPath $appxFiles[0].FullName `
+            -IdentityName $env:WINDOWS_IDENTITY_NAME `
+            -Publisher $env:WINDOWS_PUBLISHER `
+            -EvidenceDirectory ./windows-app/evidence/store-round-1 `
+            -Round 1
+
+      - name: Store Pass B - repeat WACK and lifecycle on identical AppX bytes
+        shell: pwsh
+        run: |
+          $appxFiles = @(Get-ChildItem windows-app/release -File -Filter '*.appx')
+          if ($appxFiles.Count -ne 1) { throw "Expected exactly one Store AppX" }
+          ./windows-app/scripts/windows-store-lifecycle.ps1 `
+            -AppxPath $appxFiles[0].FullName `
+            -IdentityName $env:WINDOWS_IDENTITY_NAME `
+            -Publisher $env:WINDOWS_PUBLISHER `
+            -EvidenceDirectory ./windows-app/evidence/store-round-2 `
+            -Round 2
+
+      - name: Write canonical Store validation result to the job summary
+        if: always()
+        shell: pwsh
+        run: |
+          $FirstPath = 'windows-app/evidence/store-round-1/store-lifecycle.json'
+          $SecondPath = 'windows-app/evidence/store-round-2/store-lifecycle.json'
+          if ((Test-Path -LiteralPath $FirstPath) -and (Test-Path -LiteralPath $SecondPath)) {
+            $First = Get-Content -LiteralPath $FirstPath -Raw | ConvertFrom-Json
+            $Second = Get-Content -LiteralPath $SecondPath -Raw | ConvertFrom-Json
+            foreach ($Result in @($First, $Second)) {
+              if ($Result.author -cne 'LAI ZEYU（来泽宇）' -or
+                  $Result.publisherDisplayName -cne 'LAI ZEYU' -or
+                  $Result.publisher -cne 'CN=A5F91D0A-30C6-48EE-944F-B767FA872BE8' -or
+                  $Result.wackOverall -notin @('PASS', 'PASSED') -or
+                  $Result.wackLatestVersion -ne $true -or
+                  [string]$Result.wackVersion -notmatch '^\d+(?:\.\d+){2,3}$') {
+                throw "Store lifecycle result is not the exact reviewed identity and complete WACK PASS."
+              }
             }
-          }
-          foreach ($legalFile in @('LICENSE', 'NOTICE', 'THIRD_PARTY_NOTICES.md')) {
-            if (-not (Test-Path -LiteralPath (Join-Path 'manifest-inspect/resources/legal' $legalFile) -PathType Leaf)) {
-              throw "Store package legal file missing: $legalFile"
+            if ($First.round -ne 1 -or $Second.round -ne 2 -or
+                $First.sourceCommit -cne $Second.sourceCommit -or
+                $First.appxSha256 -cne $Second.appxSha256 -or
+                $First.executableSha256 -cne $Second.executableSha256 -or
+                $First.identityName -cne $Second.identityName) {
+              throw "Store Pass A and Pass B do not bind the same source and AppX bytes."
             }
-          }
-          $storeExe = Get-ChildItem manifest-inspect -Recurse -File -Filter 'Calorie Steward by LAI ZEYU.exe' | Select-Object -First 1
-          if (-not $storeExe) { throw "Store package Electron executable missing" }
-          $storeFuseText = (& node windows-app/node_modules/@electron/fuses/dist/bin.js read --app $storeExe.FullName 2>&1 | Out-String)
-          if ($LASTEXITCODE -ne 0) { throw "Store package Electron fuse inspection failed" }
-          if (-not $storeFuseText.Contains('LoadBrowserProcessSpecificV8Snapshot is Disabled')) {
-            throw "Store package browser-process snapshot fuse is incompatible"
+            @(
+              '## Calorie Steward Store validation',
+              '',
+              '- Author/publisher display: `LAI ZEYU（来泽宇）` / `LAI ZEYU`',
+              '- Store Pass A: WACK + process-bound lifecycle PASS',
+              '- Store Pass B: WACK + process-bound lifecycle PASS',
+              "- WACK versions: ``$($First.wackVersion)`` / ``$($Second.wackVersion)`` (latest: true)",
+              "- Source AppX SHA-256: ``$($First.appxSha256)``",
+              "- WACK report SHA-256 A: ``$($First.wackReportSha256)``",
+              "- WACK report SHA-256 B: ``$($Second.wackReportSha256)``",
+              '- AppX and temporary certificate bytes: not uploaded'
+            ) >> $env:GITHUB_STEP_SUMMARY
+          } else {
+            @(
+              '## Calorie Steward Store validation',
+              '',
+              '- Result: BLOCKED or FAILED before complete WACK/lifecycle evidence',
+              '- No AppX or temporary certificate bytes were uploaded'
+            ) >> $env:GITHUB_STEP_SUMMARY
           }
 
-          $certificate = New-SelfSignedCertificate -Type Custom -Subject $env:WINDOWS_PUBLISHER `
-            -KeyUsage DigitalSignature -FriendlyName 'Calorie Steward CI sideload only' `
-            -CertStoreLocation 'Cert:\CurrentUser\My' `
-            -TextExtension @('2.5.29.37={text}1.3.6.1.5.5.7.3.3')
-          Export-Certificate -Cert $certificate -FilePath sideload-test.cer | Out-Null
-          Import-Certificate -FilePath sideload-test.cer -CertStoreLocation 'Cert:\CurrentUser\TrustedPeople' | Out-Null
-          Copy-Item $appx.FullName sideload-test.appx
-          & $signTool.FullName sign /sha1 $certificate.Thumbprint /fd SHA256 /v sideload-test.appx | Out-Host
-          if ($LASTEXITCODE -ne 0) { throw "Temporary AppX signing failed" }
-          Add-AppxPackage -Path sideload-test.appx
-          $installed = Get-AppxPackage | Where-Object { $_.Name -eq $env:WINDOWS_IDENTITY_NAME } | Select-Object -First 1
-          if (-not $installed) { throw "Sideloaded Store package not installed" }
-          $packageDataPath = Join-Path $env:LOCALAPPDATA "Packages\$($installed.PackageFamilyName)"
-          Start-Process explorer.exe "shell:AppsFolder\$($installed.PackageFamilyName)!CalorieSteward"
-          Start-Sleep -Seconds 12
-          $health = Invoke-WebRequest http://127.0.0.1:47823/ -UseBasicParsing
-          if ($health.StatusCode -ne 200) { throw "Sideloaded Store app launch probe failed" }
-          Get-CimInstance Win32_Process |
-            Where-Object { $_.ExecutablePath -and $_.ExecutablePath.StartsWith($installed.InstallLocation) } |
-            ForEach-Object { Stop-Process -Id $_.ProcessId -Force }
-          Start-Sleep -Seconds 2
-          Remove-AppxPackage -Package $installed.PackageFullName
-          if (Get-AppxPackage | Where-Object { $_.PackageFullName -eq $installed.PackageFullName }) {
-            throw "Store package remained installed"
+      - name: Remove private Store package and evidence bytes
+        if: always()
+        shell: pwsh
+        run: |
+          foreach ($Path in @('windows-app/release', 'windows-app/evidence')) {
+            if (Test-Path -LiteralPath $Path) { Remove-Item -LiteralPath $Path -Recurse -Force }
+            if (Test-Path -LiteralPath $Path) { throw "Private Store cleanup failed: $Path" }
           }
-          $deadline = (Get-Date).AddSeconds(30)
-          while ((Test-Path -LiteralPath $packageDataPath) -and (Get-Date) -lt $deadline) {
-            Start-Sleep -Milliseconds 500
-          }
-          if (Test-Path -LiteralPath $packageDataPath) {
-            throw "Store package-local data remained after removal: $packageDataPath"
-          }
-          Remove-Item "Cert:\CurrentUser\My\$($certificate.Thumbprint)" -Force
-          Get-ChildItem Cert:\CurrentUser\TrustedPeople | Where-Object { $_.Thumbprint -eq $certificate.Thumbprint } | Remove-Item -Force
-          Remove-Item sideload-test.appx, sideload-test.cer -Force
-          (Get-FileHash $appx.FullName -Algorithm SHA256).Hash.ToLower() + "  " + $appx.Name |
-            Set-Content windows-app/release/STORE_SHA256SUMS.txt
-
-      - name: Upload unsigned Partner Center candidate only
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
-        with:
-          name: calorie-steward-store-candidate
-          path: |
-            windows-app/release/*.appx
-            windows-app/release/STORE_SHA256SUMS.txt
-            windows-app/release/*.cdx.json
-          if-no-files-found: error
-          retention-days: 14

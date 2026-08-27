@@ -2,6 +2,7 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import { useMemo, useState } from "react";
 import {
   KeyboardAvoidingView,
+  Linking,
   Platform,
   Pressable,
   ScrollView,
@@ -29,6 +30,8 @@ import { Notice, PrimaryButton } from "../ui/components";
 import { officialAttribution } from "../brand/officialAttribution";
 import { useI18n } from "../i18n";
 import { colors, radius, spacing, textStyles } from "../ui/theme";
+
+const WINDOWS_PRIVACY_URL = "https://github.com/lzy2767865503-pixel/calorie-steward-ai/blob/main/docs/privacy/windows.md";
 
 export type SetupProviderKind = "enterprise" | "openai" | "openai_compatible" | "gemini" | "anthropic" | "custom";
 export type SetupProtocol = "responses" | "chat_completions" | "custom_contract" | "gemini_interactions" | "anthropic_messages";
@@ -544,6 +547,16 @@ export function ApiSetupScreen({
           <Text style={styles.footer}>
             {t("首次照片必须真实通过图片 + 结构化输出校验，之后才会把接口标记为可用。", "The first photo must pass real image and structured-output validation before the API is marked usable.")}
           </Text>
+          {Platform.OS === "web" ? (
+            <Pressable
+              accessibilityRole="link"
+              onPress={() => void Linking.openURL(WINDOWS_PRIVACY_URL)}
+              style={({ pressed }) => [styles.privacyLink, pressed && styles.pressed]}
+            >
+              <Ionicons name="shield-checkmark-outline" size={17} color={colors.teal} />
+              <Text style={styles.privacyLinkText}>{t("Windows 隐私政策", "Windows privacy policy")}</Text>
+            </Pressable>
+          ) : null}
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -644,6 +657,8 @@ const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: colors.background },
   keyboardArea: { flex: 1 },
   content: { paddingHorizontal: spacing.lg, paddingTop: spacing.lg, paddingBottom: 48, gap: spacing.lg },
+  privacyLink: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: spacing.xs },
+  privacyLinkText: { ...textStyles.caption, color: colors.teal, fontWeight: "700" },
   brandRow: { flexDirection: "row", alignItems: "center", gap: spacing.sm },
   brandMark: {
     width: 48,
