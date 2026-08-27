@@ -250,4 +250,8 @@ test("public Windows workflows never upload unsigned binaries and require LAI ZE
   assert.match(lifecycle, /Invoke-BoundedSignToolVerify -BinaryPath \$BinaryPath -Verbose/);
   assert.match(lifecycle, /exactly one SHA-256 signature with an RFC 3161 timestamp/);
   assert.match(lifecycle, /chain is not publicly trusted with online revocation checking/);
+  assert.match(
+    lifecycle,
+    /PSNativeCommandUseErrorActionPreference = \$false[\s\S]*electron-smoke\.cjs[\s\S]*SmokeExitCode = \$LASTEXITCODE/,
+  );
 });
