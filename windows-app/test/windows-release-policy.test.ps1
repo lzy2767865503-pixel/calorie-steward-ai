@@ -110,7 +110,7 @@ try {
 <PackageManifest PackageFullName='LAIZEYU.CalorieStewardbyLAIZEYU_1.2.3.0_x64__jex0hdpdrk7qw'>
   <Identity Name='$IdentityName' Publisher='$Publisher' Version='1.2.3.0' ProcessorArchitecture='x64'/>
   <Properties><PublisherDisplayName>LAI ZEYU</PublisherDisplayName></Properties>
-  <Applications><Application Id='CalorieSteward' Executable='Calorie Steward by LAI ZEYU.exe'/></Applications>
+  <Applications><Application Id='CalorieSteward' Executable='app\Calorie Steward by LAI ZEYU.exe'/></Applications>
 </PackageManifest>
 "@
   $BindingCases = @(

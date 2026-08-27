@@ -317,7 +317,7 @@ function Register-ExactAppCertInstallLocation {
         $AppCertIdentity.GetAttribute('ProcessorArchitecture') -cne 'x64' -or
         -not $AppCertApplication -or
         $AppCertApplication.GetAttribute('Id') -cne 'CalorieSteward' -or
-        $AppCertApplication.GetAttribute('Executable') -cne 'Calorie Steward by LAI ZEYU.exe') {
+        $AppCertApplication.GetAttribute('Executable') -cne 'app\Calorie Steward by LAI ZEYU.exe') {
       throw "Candidate AppCert manifest differs from the reviewed AppX identity."
     }
   } elseif (-not $AllowAlreadyRemoved) {
@@ -356,7 +356,7 @@ function Assert-WackReportCandidateBinding {
       $Identities[0].GetAttribute('Version') -cne '1.2.3.0' -or
       $Identities[0].GetAttribute('ProcessorArchitecture') -cne 'x64' -or
       $Applications[0].GetAttribute('Id') -cne 'CalorieSteward' -or
-      $Applications[0].GetAttribute('Executable') -cne 'Calorie Steward by LAI ZEYU.exe' -or
+      $Applications[0].GetAttribute('Executable') -cne 'app\Calorie Steward by LAI ZEYU.exe' -or
       $PublisherDisplayNames[0].InnerText -cne 'LAI ZEYU' -or
       [string]::IsNullOrWhiteSpace($PackageFullName) -or
       [string]::IsNullOrWhiteSpace($RawInstallLocation)) {
@@ -399,7 +399,7 @@ function Capture-FreshExactAppCertRoots {
             $CandidateIdentity.GetAttribute('Version') -ceq '1.2.3.0' -and
             $CandidateIdentity.GetAttribute('ProcessorArchitecture') -ceq 'x64' -and
             $CandidateApplication.GetAttribute('Id') -ceq 'CalorieSteward' -and
-            $CandidateApplication.GetAttribute('Executable') -ceq 'Calorie Steward by LAI ZEYU.exe') {
+            $CandidateApplication.GetAttribute('Executable') -ceq 'app\Calorie Steward by LAI ZEYU.exe') {
           $CandidateDirectories += $InstallDirectory
         }
       }
@@ -510,7 +510,7 @@ try {
     throw "Visible Store product/publisher identity is not exact."
   }
   if (-not $Application -or $Application.Id -cne 'CalorieSteward' -or
-      $Application.Executable -cne 'Calorie Steward by LAI ZEYU.exe') {
+      $Application.Executable -cne 'app\Calorie Steward by LAI ZEYU.exe') {
     throw "Store Application Id or executable is not exact."
   }
   if (-not $Manifest.SelectSingleNode("/f:Package/f:Capabilities/r:Capability[@Name='runFullTrust']", $Namespaces)) {
@@ -519,12 +519,12 @@ try {
   $Languages = @($Manifest.SelectNodes('/f:Package/f:Resources/f:Resource', $Namespaces) | ForEach-Object { $_.Language })
   if ('en-US' -notin $Languages -or 'zh-CN' -notin $Languages) { throw "Declared languages are incomplete." }
   foreach ($Locale in @('en-US.pak', 'zh-CN.pak')) {
-    if (-not (Test-Path -LiteralPath (Join-Path $UnpackedRoot "locales\$Locale") -PathType Leaf)) {
+    if (-not (Test-Path -LiteralPath (Join-Path $UnpackedRoot "app\locales\$Locale") -PathType Leaf)) {
       throw "Store package Electron locale is missing: $Locale"
     }
   }
   foreach ($LegalFile in @('LICENSE', 'NOTICE', 'THIRD_PARTY_NOTICES.md')) {
-    if (-not (Test-Path -LiteralPath (Join-Path $UnpackedRoot "resources\legal\$LegalFile") -PathType Leaf)) {
+    if (-not (Test-Path -LiteralPath (Join-Path $UnpackedRoot "app\resources\legal\$LegalFile") -PathType Leaf)) {
       throw "Store package legal file is missing: $LegalFile"
     }
   }

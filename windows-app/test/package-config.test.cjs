@@ -255,3 +255,56 @@ test("public Windows workflows never upload unsigned binaries and require LAI ZE
     /PSNativeCommandUseErrorActionPreference = \$false[\s\S]*electron-smoke\.cjs[\s\S]*SmokeExitCode = \$LASTEXITCODE/,
   );
 });
+
+test("Partner Center handoff is protected-main-only and binds two passes to one AppX", () => {
+  const workflow = fs.readFileSync(
+    path.join(repositoryRoot, ".github", "workflows", "windows-store-submission.yml"),
+    "utf8",
+  );
+  assert.match(workflow, /github\.repository_id == '1345152257'/);
+  assert.match(workflow, /github\.ref == 'refs\/heads\/main'/);
+  assert.match(workflow, /github\.ref_protected == true/);
+  assert.match(workflow, /github\.actor == 'lzy2767865503-pixel'/);
+  assert.match(workflow, /github\.triggering_actor == 'lzy2767865503-pixel'/);
+  assert.match(workflow, /inputs\.create_partner_center_candidate/);
+  assert.match(workflow, /LAIZEYU\.CalorieStewardbyLAIZEYU/);
+  assert.match(workflow, /CN=A5F91D0A-30C6-48EE-944F-B767FA872BE8/);
+  assert.equal(
+    (workflow.match(/node windows-app\/scripts\/electron-smoke\.cjs/g) ?? []).length,
+    2,
+  );
+  assert.equal(
+    (workflow.match(/inspect-store-submission-candidate\.ps1/g) ?? []).length,
+    2,
+  );
+  assert.match(workflow, /-Round 1/);
+  assert.match(workflow, /-Round 2/);
+  assert.match(workflow, /unpackedInventorySha256/);
+  assert.match(workflow, /actions\/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a/);
+  assert.match(workflow, /path: windows-app\/partner-center-candidate/);
+  assert.match(workflow, /retention-days: 1/);
+  assert.match(workflow, /Unsigned Partner Center submission candidate; not a public GitHub installer/);
+  assert.doesNotMatch(workflow, /contents: write|gh release|uploads\.github\.com/);
+  assert.doesNotMatch(workflow, /\*\.(?:exe|dll|zip|pfx|p12|key)/i);
+
+  const inspection = fs.readFileSync(
+    path.join(projectRoot, "scripts", "inspect-store-submission-candidate.ps1"),
+    "utf8",
+  );
+  assert.match(inspection, /SignatureStatus\]::NotSigned/);
+  assert.match(inspection, /app\\Calorie Steward by LAI ZEYU\.exe/);
+  assert.match(inspection, /Copyright 2026 LAI ZEYU/);
+  assert.match(inspection, /Get-TrustedWindowsSdkTool -Name 'makeappx\.exe'/);
+  assert.match(inspection, /unpackedInventorySha256 = \$InventoryHash/);
+  assert.match(inspection, /ExpectedExecutableSha256/);
+  assert.match(inspection, /Assert-NoReparsePoint/);
+
+  const smoke = fs.readFileSync(
+    path.join(projectRoot, "scripts", "electron-smoke.cjs"),
+    "utf8",
+  );
+  assert.match(smoke, /Emulation\.setDeviceMetricsOverride/);
+  assert.match(smoke, /width: 1366/);
+  assert.match(smoke, /height: 768/);
+  assert.match(smoke, /Store screenshot must be an exact 1366x768 PNG/);
+});

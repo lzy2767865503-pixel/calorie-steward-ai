@@ -1,0 +1,337 @@
+name: Partner Center Store candidate
+
+on:
+  workflow_dispatch:
+    inputs:
+      create_partner_center_candidate:
+        description: Build the unsigned Microsoft Store AppX after two packaged runtime passes
+        required: true
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+
+concurrency:
+  group: calorie-partner-center-candidate
+  cancel-in-progress: false
+
+jobs:
+  build-test-and-stage:
+    name: Store candidate - two runtime and two static passes
+    if: >-
+      github.repository_id == '1345152257' &&
+      github.event_name == 'workflow_dispatch' &&
+      github.ref == 'refs/heads/main' &&
+      github.ref_protected == true &&
+      github.actor == 'lzy2767865503-pixel' &&
+      github.triggering_actor == 'lzy2767865503-pixel' &&
+      inputs.create_partner_center_candidate
+    runs-on: windows-latest
+    timeout-minutes: 90
+    env:
+      WINDOWS_IDENTITY_NAME: ${{ vars.CALORIE_WINDOWS_IDENTITY_NAME }}
+      WINDOWS_PUBLISHER: ${{ vars.WINDOWS_PUBLISHER }}
+    steps:
+      - name: Check out the exact protected-main commit
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Prove repository, commit, identity, and clean source
+        shell: pwsh
+        run: |
+          if ($env:GITHUB_REPOSITORY -cne 'lzy2767865503-pixel/calorie-steward-ai' -or
+              $env:GITHUB_REPOSITORY_ID -cne '1345152257') {
+            throw 'Store candidate workflow is bound to the wrong repository.'
+          }
+          $Head = (& git rev-parse HEAD).Trim()
+          if ($LASTEXITCODE -ne 0 -or $Head -cne $env:GITHUB_SHA -or
+              $Head -cnotmatch '^[a-f0-9]{40}$') {
+            throw 'Checkout is not the exact workflow-dispatch commit.'
+          }
+          if (-not [string]::IsNullOrWhiteSpace((& git status --porcelain))) {
+            throw 'Checkout is not clean before the Store build.'
+          }
+          if ($env:WINDOWS_IDENTITY_NAME -cne 'LAIZEYU.CalorieStewardbyLAIZEYU' -or
+              $env:WINDOWS_PUBLISHER -cne 'CN=A5F91D0A-30C6-48EE-944F-B767FA872BE8') {
+            throw 'Repository variables differ from the exact Partner Center identity.'
+          }
+
+      - name: Set up Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: |
+            mobile-app/package-lock.json
+            windows-app/package-lock.json
+
+      - name: Install locked dependencies
+        shell: pwsh
+        run: |
+          npm --prefix mobile-app ci
+          npm --prefix windows-app ci
+
+      - name: Run source, attribution, secret, and release-policy gates
+        shell: pwsh
+        run: |
+          bash ./scripts/scan-public-secrets.sh
+          if ($LASTEXITCODE -ne 0) { throw 'Public secret scan failed.' }
+          bash ./scripts/check-attribution.sh
+          if ($LASTEXITCODE -ne 0) { throw 'Attribution gate failed.' }
+          npm --prefix windows-app run verify
+          ./windows-app/test/windows-release-policy.test.ps1
+
+      - name: Build exact unsigned Partner Center AppX
+        shell: pwsh
+        run: npm --prefix windows-app run build:store
+
+      - name: Require one AppX and one matching packaged executable
+        shell: pwsh
+        run: |
+          $Appx = @(Get-ChildItem windows-app/release -File -Filter '*.appx')
+          if ($Appx.Count -ne 1 -or
+              $Appx[0].Name -cne 'Calorie-Steward-Windows-1.2.3-x64.appx') {
+            throw 'Expected exactly the reviewed Calorie Steward 1.2.3 x64 AppX.'
+          }
+          if ((Get-AuthenticodeSignature -LiteralPath $Appx[0].FullName).Status -ne
+              [Management.Automation.SignatureStatus]::NotSigned) {
+            throw 'Partner Center source AppX must remain unsigned.'
+          }
+          $Executable = @(Get-ChildItem windows-app/release/win-unpacked -File |
+            Where-Object { $_.Name -ceq 'Calorie Steward by LAI ZEYU.exe' })
+          if ($Executable.Count -ne 1) { throw 'Exact packaged executable is missing or ambiguous.' }
+          $ExecutableHash = (Get-FileHash -LiteralPath $Executable[0].FullName -Algorithm SHA256).Hash.ToLowerInvariant()
+          "CALORIE_STORE_APPX=$($Appx[0].FullName)" >> $env:GITHUB_ENV
+          "CALORIE_STORE_EXECUTABLE=$($Executable[0].FullName)" >> $env:GITHUB_ENV
+          "CALORIE_STORE_EXECUTABLE_SHA256=$ExecutableHash" >> $env:GITHUB_ENV
+
+      - name: Packaged runtime Pass A with Store screenshot
+        shell: pwsh
+        env:
+          CALORIE_DEBUGGING_PORT: '49311'
+          CALORIE_SMOKE_SCREENSHOT: evidence/partner-center/pass-a.png
+        run: |
+          $env:CALORIE_ELECTRON_BINARY = $env:CALORIE_STORE_EXECUTABLE
+          node windows-app/scripts/electron-smoke.cjs
+
+      - name: Packaged runtime Pass B on the exact same executable
+        shell: pwsh
+        env:
+          CALORIE_DEBUGGING_PORT: '49312'
+          CALORIE_SMOKE_SCREENSHOT: evidence/partner-center/pass-b.png
+        run: |
+          if ((Get-FileHash -LiteralPath $env:CALORIE_STORE_EXECUTABLE -Algorithm SHA256).Hash.ToLowerInvariant() -cne
+              $env:CALORIE_STORE_EXECUTABLE_SHA256) {
+            throw 'Packaged executable changed between runtime passes.'
+          }
+          $env:CALORIE_ELECTRON_BINARY = $env:CALORIE_STORE_EXECUTABLE
+          node windows-app/scripts/electron-smoke.cjs
+          if ((Get-FileHash -LiteralPath $env:CALORIE_STORE_EXECUTABLE -Algorithm SHA256).Hash.ToLowerInvariant() -cne
+              $env:CALORIE_STORE_EXECUTABLE_SHA256) {
+            throw 'Packaged executable changed during runtime Pass B.'
+          }
+
+      - name: Store AppX static Pass A
+        shell: pwsh
+        run: |
+          ./windows-app/scripts/inspect-store-submission-candidate.ps1 `
+            -AppxPath $env:CALORIE_STORE_APPX `
+            -ExpectedExecutableSha256 $env:CALORIE_STORE_EXECUTABLE_SHA256 `
+            -EvidenceDirectory ./windows-app/evidence/partner-center/static-pass-a `
+            -Round 1
+
+      - name: Store AppX static Pass B on identical bytes
+        shell: pwsh
+        run: |
+          ./windows-app/scripts/inspect-store-submission-candidate.ps1 `
+            -AppxPath $env:CALORIE_STORE_APPX `
+            -ExpectedExecutableSha256 $env:CALORIE_STORE_EXECUTABLE_SHA256 `
+            -EvidenceDirectory ./windows-app/evidence/partner-center/static-pass-b `
+            -Round 2
+
+      - name: Compare both static passes and both screenshots
+        shell: pwsh
+        run: |
+          $First = Get-Content windows-app/evidence/partner-center/static-pass-a/store-inspection.json -Raw | ConvertFrom-Json
+          $Second = Get-Content windows-app/evidence/partner-center/static-pass-b/store-inspection.json -Raw | ConvertFrom-Json
+          foreach ($Field in @(
+            'product', 'author', 'publisherDisplayName', 'identityName', 'publisher',
+            'version', 'architecture', 'applicationId', 'executable', 'sourceCommit',
+            'appxFile', 'appxSha256', 'manifestSha256', 'executableSha256',
+            'unpackedInventorySha256', 'unpackedFileCount', 'unpackedBytes',
+            'makeAppxSha256', 'makeAppxFileVersion'
+          )) {
+            if ([string]$First.$Field -cne [string]$Second.$Field) {
+              throw "Static Store passes disagree on $Field."
+            }
+          }
+          if ([int]$First.round -ne 1 -or [int]$Second.round -ne 2 -or
+              [string]$First.appxSha256 -cnotmatch '^[0-9a-f]{64}$' -or
+              [string]$First.author -cne 'LAI ZEYU（来泽宇）') {
+            throw 'Static Store evidence is incomplete or not bound to both rounds.'
+          }
+          foreach ($Screenshot in @(
+            'windows-app/evidence/partner-center/pass-a.png',
+            'windows-app/evidence/partner-center/pass-b.png'
+          )) {
+            $Bytes = [IO.File]::ReadAllBytes((Resolve-Path -LiteralPath $Screenshot))
+            if ($Bytes.Length -lt 24 -or
+                [BitConverter]::ToString($Bytes[0..7]) -cne '89-50-4E-47-0D-0A-1A-0A' -or
+                [Net.IPAddress]::NetworkToHostOrder([BitConverter]::ToInt32($Bytes, 16)) -ne 1366 -or
+                [Net.IPAddress]::NetworkToHostOrder([BitConverter]::ToInt32($Bytes, 20)) -ne 768) {
+              throw "Store screenshot is not an exact 1366x768 PNG: $Screenshot"
+            }
+          }
+
+      - name: Generate CycloneDX dependency evidence
+        shell: pwsh
+        run: |
+          npm --prefix mobile-app sbom --sbom-format cyclonedx --sbom-type application |
+            Set-Content windows-app/release/calorie-steward-product.cdx.json -Encoding utf8
+          npm --prefix windows-app sbom --sbom-format cyclonedx --sbom-type application |
+            Set-Content windows-app/release/calorie-steward-electron.cdx.json -Encoding utf8
+          foreach ($Path in @(
+            'windows-app/release/calorie-steward-product.cdx.json',
+            'windows-app/release/calorie-steward-electron.cdx.json'
+          )) {
+            $Document = Get-Content -LiteralPath $Path -Raw | ConvertFrom-Json
+            if ($Document.bomFormat -cne 'CycloneDX' -or [string]::IsNullOrWhiteSpace([string]$Document.specVersion)) {
+              throw "Generated SBOM is malformed: $Path"
+            }
+          }
+
+      - name: Freeze minimal Partner Center handoff with lineage
+        shell: pwsh
+        run: |
+          & git fetch --no-tags --depth=1 origin main
+          if ($LASTEXITCODE -ne 0) { throw 'Could not refresh public main for final lineage check.' }
+          $RemoteMain = (& git rev-parse origin/main).Trim()
+          if ($LASTEXITCODE -ne 0 -or $RemoteMain -cne $env:GITHUB_SHA) {
+            throw 'Main advanced during the Store build; refusing a stale Partner Center candidate.'
+          }
+          if (-not [string]::IsNullOrWhiteSpace((& git status --porcelain --untracked-files=no))) {
+            throw 'Tracked source changed during the Store build.'
+          }
+
+          $Stage = 'windows-app/partner-center-candidate'
+          if (Test-Path -LiteralPath $Stage) { throw 'Partner Center staging directory already exists.' }
+          New-Item -ItemType Directory -Path "$Stage/evidence/static-pass-a" -Force | Out-Null
+          New-Item -ItemType Directory -Path "$Stage/evidence/static-pass-b" -Force | Out-Null
+          Copy-Item -LiteralPath $env:CALORIE_STORE_APPX -Destination $Stage
+          Copy-Item -LiteralPath windows-app/release/calorie-steward-product.cdx.json -Destination $Stage
+          Copy-Item -LiteralPath windows-app/release/calorie-steward-electron.cdx.json -Destination $Stage
+          Copy-Item -LiteralPath windows-app/evidence/partner-center/pass-a.png -Destination "$Stage/evidence"
+          Copy-Item -LiteralPath windows-app/evidence/partner-center/pass-b.png -Destination "$Stage/evidence"
+          Copy-Item -LiteralPath windows-app/evidence/partner-center/static-pass-a/store-inspection.json -Destination "$Stage/evidence/static-pass-a"
+          Copy-Item -LiteralPath windows-app/evidence/partner-center/static-pass-a/unpacked-inventory.txt -Destination "$Stage/evidence/static-pass-a"
+          Copy-Item -LiteralPath windows-app/evidence/partner-center/static-pass-b/store-inspection.json -Destination "$Stage/evidence/static-pass-b"
+          Copy-Item -LiteralPath windows-app/evidence/partner-center/static-pass-b/unpacked-inventory.txt -Destination "$Stage/evidence/static-pass-b"
+
+          $Reparse = @((Get-Item -LiteralPath $Stage -Force)) +
+            @(Get-ChildItem -LiteralPath $Stage -Recurse -Force) |
+            Where-Object { ($_.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0 }
+          if ($Reparse.Count -gt 0) { throw 'Partner Center staging tree contains a reparse point.' }
+          $Forbidden = @(Get-ChildItem -LiteralPath $Stage -Recurse -File -Force | Where-Object {
+            $_.Extension -in @('.exe', '.dll', '.zip', '.msi', '.pfx', '.p12', '.key', '.pem', '.cer')
+          })
+          if ($Forbidden.Count -gt 0) { throw "Forbidden loose handoff file: $($Forbidden[0].FullName)" }
+          $AppxFiles = @(Get-ChildItem -LiteralPath $Stage -File -Filter '*.appx')
+          if ($AppxFiles.Count -ne 1 -or $AppxFiles[0].Name -cne 'Calorie-Steward-Windows-1.2.3-x64.appx') {
+            throw 'Handoff must contain exactly one top-level AppX.'
+          }
+
+          $ContentFiles = @(Get-ChildItem -LiteralPath $Stage -Recurse -File -Force | Sort-Object FullName)
+          $Content = @($ContentFiles | ForEach-Object {
+            [ordered]@{
+              path = [IO.Path]::GetRelativePath((Resolve-Path $Stage), $_.FullName).Replace('\', '/')
+              bytes = $_.Length
+              sha256 = (Get-FileHash -LiteralPath $_.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
+            }
+          })
+          $Inspection = Get-Content "$Stage/evidence/static-pass-a/store-inspection.json" -Raw | ConvertFrom-Json
+          [ordered]@{
+            schemaVersion = 1
+            purpose = 'Unsigned Partner Center submission candidate; not a public GitHub installer'
+            product = 'Calorie Steward by LAI ZEYU'
+            author = 'LAI ZEYU（来泽宇）'
+            publisherDisplayName = 'LAI ZEYU'
+            sourceCommit = $env:GITHUB_SHA
+            repository = $env:GITHUB_REPOSITORY
+            repositoryId = $env:GITHUB_REPOSITORY_ID
+            workflow = $env:GITHUB_WORKFLOW
+            runId = $env:GITHUB_RUN_ID
+            runAttempt = $env:GITHUB_RUN_ATTEMPT
+            appxSha256 = [string]$Inspection.appxSha256
+            executableSha256 = [string]$Inspection.executableSha256
+            runtimePasses = 2
+            staticPasses = 2
+            content = $Content
+            createdAtUtc = [DateTime]::UtcNow.ToString('o')
+          } | ConvertTo-Json -Depth 6 | Set-Content "$Stage/LINEAGE.json" -Encoding utf8
+          $Checksummed = @(Get-ChildItem -LiteralPath $Stage -Recurse -File -Force | Sort-Object FullName)
+          $ChecksumLines = @($Checksummed | ForEach-Object {
+            $Relative = [IO.Path]::GetRelativePath((Resolve-Path $Stage), $_.FullName).Replace('\', '/')
+            $Hash = (Get-FileHash -LiteralPath $_.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
+            "$Hash  $Relative"
+          })
+          [IO.File]::WriteAllText(
+            (Join-Path (Resolve-Path $Stage) 'SHA256SUMS.txt'),
+            ($ChecksumLines -join "`n") + "`n",
+            [Text.UTF8Encoding]::new($false)
+          )
+
+      - name: Upload one-day Partner Center candidate artifact
+        id: candidate-upload
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: calorie-partner-center-${{ github.sha }}
+          path: windows-app/partner-center-candidate
+          if-no-files-found: error
+          retention-days: 1
+          compression-level: 0
+          overwrite: false
+          include-hidden-files: false
+
+      - name: Record exact handoff result
+        shell: pwsh
+        run: |
+          $Inspection = Get-Content windows-app/partner-center-candidate/evidence/static-pass-a/store-inspection.json -Raw | ConvertFrom-Json
+          @(
+            '## Calorie Steward Partner Center candidate',
+            '',
+            '- Runtime Pass A: PASS',
+            '- Runtime Pass B: PASS',
+            '- Static AppX Pass A: PASS',
+            '- Static AppX Pass B: PASS',
+            '- Screenshot size: `1366x768`',
+            '- Author: `LAI ZEYU（来泽宇）`',
+            '- Publisher display name: `LAI ZEYU`',
+            "- Source commit: ``$env:GITHUB_SHA``",
+            "- AppX SHA-256: ``$($Inspection.appxSha256)``",
+            "- Artifact digest: ``${{ steps.candidate-upload.outputs.artifact-digest }}``",
+            '- Scope: unsigned Microsoft Store submission candidate only; no public GitHub installer was released'
+          ) >> $env:GITHUB_STEP_SUMMARY
+
+      - name: Remove candidate bytes from the runner
+        if: always()
+        shell: pwsh
+        run: |
+          foreach ($Path in @(
+            'windows-app/partner-center-candidate',
+            'windows-app/evidence',
+            'windows-app/release'
+          )) {
+            if (Test-Path -LiteralPath $Path) {
+              $Items = @((Get-Item -LiteralPath $Path -Force)) +
+                @(Get-ChildItem -LiteralPath $Path -Recurse -Force)
+              if (@($Items | Where-Object {
+                ($_.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0
+              }).Count -gt 0) {
+                throw "Refusing cleanup of a reparse-bearing generated tree: $Path"
+              }
+              Remove-Item -LiteralPath $Path -Recurse -Force
+            }
+            if (Test-Path -LiteralPath $Path) { throw "Runner cleanup failed: $Path" }
+          }

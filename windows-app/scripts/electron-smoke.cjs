@@ -310,13 +310,35 @@ async function main() {
       throw new Error("The packaged UI readiness marker is invalid.");
     }
     if (process.env.CALORIE_SMOKE_SCREENSHOT) {
+      await cdpCommand(page.webSocketDebuggerUrl, "Emulation.setDeviceMetricsOverride", {
+        width: 1366,
+        height: 768,
+        deviceScaleFactor: 1,
+        mobile: false,
+        screenWidth: 1366,
+        screenHeight: 768,
+        positionX: 0,
+        positionY: 0,
+        dontSetVisibleSize: false,
+      });
+      await delay(250);
       const screenshot = await cdpCommand(page.webSocketDebuggerUrl, "Page.captureScreenshot", {
         format: "png",
         fromSurface: true,
+        captureBeyondViewport: false,
       });
       const screenshotPath = path.resolve(projectRoot, process.env.CALORIE_SMOKE_SCREENSHOT);
+      const screenshotBytes = Buffer.from(screenshot.data, "base64");
+      if (
+        screenshotBytes.length < 24 ||
+        screenshotBytes.toString("hex", 0, 8) !== "89504e470d0a1a0a" ||
+        screenshotBytes.readUInt32BE(16) !== 1366 ||
+        screenshotBytes.readUInt32BE(20) !== 768
+      ) {
+        throw new Error("Store screenshot must be an exact 1366x768 PNG.");
+      }
       await fs.mkdir(path.dirname(screenshotPath), { recursive: true });
-      await fs.writeFile(screenshotPath, Buffer.from(screenshot.data, "base64"));
+      await fs.writeFile(screenshotPath, screenshotBytes);
     }
     process.stdout.write("Electron desktop bridge, sandbox, isolation, and UI smoke passed.\n");
   } catch (error) {
