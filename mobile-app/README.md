@@ -1,6 +1,6 @@
-# 卡路里管家双端客户端
+# 卡路里管家跨平台客户端
 
-同一份 Expo React Native + TypeScript 业务代码面向 Android 和 iOS。当前版本只保留“拍照识别”一种餐食录入方式。
+同一份 Expo React Native + TypeScript 业务代码面向 Android、iOS，并通过 `windows-app/` 的 Electron 安全壳提供 Windows 发布候选版。当前版本只保留“拍照/选择图片识别”一种餐食录入方式。
 
 ## 核心规则
 
@@ -27,7 +27,9 @@
 
 - 业务数据：Expo SQLite，WAL + foreign keys + 连续迁移。
 - API 密钥：Expo SecureStore，按 Provider 类型、端点 origin 和认证类型隔离，与可导出配置分离。
+- Windows API 凭据：通过 Electron `safeStorage` 使用操作系统保护，不进入 SQLite 或浏览器存储。
 - 图片：拍摄后在本机缩放、重新编码、移除 EXIF/GPS；默认调用后删除。
+- Windows 图片：系统选择器只提供源文件读取权；重编码 JPEG 仅在内存中存在，强制不保留照片。
 - 导出：JSON 含餐食、每日状态、个人化参考和报告；不含 API Key、原始照片或本机文件路径。
 - 删除：事务删除餐食/日状态/报告，并尝试清理已保留的本地照片。
 
@@ -54,6 +56,16 @@ iOS 工程：
 ```bash
 npx expo prebuild --platform ios --no-install
 ```
+
+Windows 发布候选版：
+
+```bash
+cd ../windows-app
+npm ci
+npm run verify
+```
+
+Windows Store 包只能在取得 Partner Center 的精确 identity/publisher 后构建，并且在两轮 Windows 验证与 WACK 通过前不得标记为正式发布。
 
 安装到真实 iPhone 需要 macOS 上的完整 Xcode、CocoaPods 和 Apple Developer 签名。云构建可使用仓库中的 `eas.json`，但需要用户自己的 Expo/Apple 账号。
 

@@ -7,7 +7,7 @@
 > AI-assisted vibe-coding workflow. Product decisions, architecture boundaries,
 > acceptance criteria and release accountability remain human-owned.
 
-[中文](#中文) · [English](#english) · [Android releases](https://github.com/lzy2767865503-pixel/calorie-steward-ai/releases) ·
+[中文](#中文) · [English](#english) · [Releases](https://github.com/lzy2767865503-pixel/calorie-steward-ai/releases) ·
 [Security](SECURITY.md) · [Contributing](CONTRIBUTING.md) · [Case study](docs/PORTFOLIO_CASE_STUDY.md)
 
 ---
@@ -90,6 +90,18 @@ cd android
 
 iOS 仅为源码兼容目标：本次没有生成可分发的 iOS 构建、没有真机/模拟器验收、没有 Apple 签名，也没有 App Store 提交。后续构建需要 Xcode、CocoaPods 和使用者自己的 Apple Developer 账号。AI 识别和报告需要使用者自己的 API 或企业网关；仓库和 APK 不包含任何可用密钥。
 
+### Windows 商店候选版
+
+`windows-app/` 把同一套经过验证的 Expo 业务代码放入安全加固的 Electron 桌面壳。Windows 版使用固定的 loopback origin 运行 SQLite WASM，以 `contextIsolation + sandbox` 隔离渲染层，并通过 Windows 系统凭据加密保存用户自行提供的 API 凭据。它不保留餐食照片：系统选择器读入的图片只在内存中重编码为 JPEG、移除 EXIF/GPS，保存结构化记录后释放。
+
+```bash
+cd windows-app
+npm ci
+npm run verify
+```
+
+商店构建会在 Partner Center 预留名称后注入真实 `WINDOWS_IDENTITY_NAME` 与 `WINDOWS_PUBLISHER`，缺少任一值即停止。GitHub Actions 的 Pass A 负责全新 Windows 构建、179 项客户端测试、桌面安全测试、依赖审计和打包；Pass B 从上一轮哈希锁定的 ZIP 启动已打包程序。正式发布仍必须补做干净 Windows 11 标准用户下的文件选择、SQLite/DPAPI、导出、缩放、安装/升级/卸载、Defender 与 WACK 交互验收。**在这些门禁和 Microsoft 认证完成前，本段描述的是发布候选代码，不是已经上架或已通过认证的声明。** Windows 隐私政策见 [docs/privacy/windows.md](docs/privacy/windows.md)。
+
 ### 开发者、AI 协作与归属
 
 本项目由 **LAI ZEYU (来泽宇)** 发起并负责产品定义、用户流程、商业化方向、架构取舍、验收标准与发布质量。实现过程使用了 **AI-assisted vibe coding**：人负责问题拆解、约束、取舍和最终责任，AI 工具辅助代码生成、测试、文档与审查。本仓库不把 AI 输出冒充为独立人类编码，也不把未验证的功能写成产品事实。
@@ -155,6 +167,18 @@ npx expo start
 ```
 
 The checked-in native projects preserve release policy and attribution metadata. Build Android directly from `mobile-app/android`; run Expo prebuild only when deliberately regenerating native projects and review the resulting diff. The AI analysis and report features require the user's own supported API or an organizational gateway. No usable API key is included in the repository or APK. iOS is source-compatible only in this release: no iOS build, simulator/device acceptance, Apple signing or App Store submission was completed. A future iOS build requires Xcode, CocoaPods and the user's own Apple Developer account.
+
+### Windows Store release candidate
+
+`windows-app/` packages the same validated Expo product code inside a hardened Electron desktop shell. The Windows edition serves SQLite WASM from a fixed loopback origin, isolates the renderer with `contextIsolation + sandbox`, and protects user-supplied API credentials with Windows operating-system encryption. It never retains meal photos: a system-picked image is re-encoded to JPEG in memory with EXIF/GPS removed and is released after the structured record is saved.
+
+```bash
+cd windows-app
+npm ci
+npm run verify
+```
+
+The Store build injects the exact `WINDOWS_IDENTITY_NAME` and `WINDOWS_PUBLISHER` obtained after Partner Center name reservation and fails closed if either is missing. GitHub Actions Pass A performs a clean Windows build, the 179 client tests, desktop-security tests, dependency audit, and packaging; Pass B launches the hash-locked packaged ZIP. A clean Windows 11 standard-user run must still verify the file picker, SQLite/DPAPI, export, scaling, install/upgrade/uninstall, Defender, and WACK before release. **Until those gates and Microsoft certification complete, this is release-candidate code, not a claim that the app is listed or certified.** See the [Windows privacy policy](docs/privacy/windows.md).
 
 ### Authorship and responsible AI-assisted development
 

@@ -41,7 +41,12 @@ id_ed25519
 **/.expo/
 **/.expo-shared/
 **/dist/
+**/dist-web/
 **/coverage/
+.playwright-cli/
+output/playwright/
+windows-app/evidence/
+windows-app/release/
 *.jsbundle
 
 # Android / Gradle
@@ -49,9 +54,17 @@ id_ed25519
 **/.kotlin/
 **/.cxx/
 **/build/
+!windows-app/build/
+!windows-app/build/**
 *.aab
 *.apk
 *.apks
+*.appx
+*.appxbundle
+*.msix
+*.msixbundle
+*.exe
+*.blockmap
 
 # Apple build products
 **/Pods/

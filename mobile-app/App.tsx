@@ -1,6 +1,5 @@
 import * as Application from "expo-application";
 import { CryptoDigestAlgorithm, digestStringAsync, randomUUID } from "expo-crypto";
-import * as Sharing from "expo-sharing";
 import { StatusBar } from "expo-status-bar";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
@@ -166,6 +165,8 @@ import {
 } from "./src/ui/NativeUpdateOverlay";
 import { colors, spacing, textStyles } from "./src/ui/theme";
 import { officialAttribution } from "./src/brand/officialAttribution";
+import { isWindowsDesktopRuntime } from "./src/platform/desktopRuntime";
+import * as Sharing from "./src/platform/sharing";
 import {
   I18nProvider,
   LANGUAGE_PREFERENCE_SETTING_KEY,
@@ -553,6 +554,7 @@ async function reportInputFingerprint(
 }
 
 export default function App() {
+  const windowsDesktop = isWindowsDesktopRuntime();
   const detectedSystemLanguage = useMemo(systemLanguage, []);
   const [languagePreference, setLanguagePreference] = useState<LanguagePreference>("system");
   const language = resolveLanguage(languagePreference, detectedSystemLanguage);
@@ -800,8 +802,8 @@ export default function App() {
   }, []);
 
   const bootstrap = async () => {
-    if (Platform.OS === "web") {
-      setSetupError(localizedCopy(language, "浏览器只用于检查首页设计，不接收或保存真实 API Key。请在 Android/iOS App 中配置。", "The browser preview is for interface review only and never accepts or stores a real API key. Configure it in the Android or iOS app."));
+    if (Platform.OS === "web" && !windowsDesktop) {
+      setSetupError(localizedCopy(language, "浏览器只用于检查首页设计，不接收或保存真实 API Key。请在 Android、iOS 或 Windows 桌面 App 中配置。", "The browser preview is for interface review only and never accepts or stores a real API key. Configure it in the Android, iOS, or Windows desktop app."));
       setScreen("setup");
       return;
     }
@@ -904,9 +906,9 @@ export default function App() {
       if (managed) {
         await purgeAllRetainedMealPhotos(activeLanguage);
       }
-      const mayRetainPhotos = !managed && retainSetting?.value === true;
+      const mayRetainPhotos = !windowsDesktop && !managed && retainSetting?.value === true;
       setRetainPhotos(mayRetainPhotos);
-      if (managed && retainSetting?.value === true) {
+      if ((windowsDesktop || managed) && retainSetting?.value === true) {
         await setSetting(RETAIN_PHOTOS_SETTING_KEY, false);
       }
 
@@ -921,7 +923,7 @@ export default function App() {
         }
         const secret = await getApiSecretStatus(savedConfig.value.config.id);
         if (!secret.configured) {
-          setSetupError(localizedCopy(activeLanguage, "找到 API 配置，但 Keychain/Keystore 中没有对应凭据。", "An API configuration was found, but its credential is missing from Keychain/Keystore."));
+          setSetupError(localizedCopy(activeLanguage, "找到 API 配置，但系统凭据保护区中没有对应凭据。", "An API configuration was found, but its credential is missing from protected system storage."));
           setScreen("setup");
           return;
         }
@@ -946,7 +948,7 @@ export default function App() {
   };
 
   const refreshToday = async (activeProfile = profile, activeLanguage = language) => {
-    if (Platform.OS === "web") return;
+    if (Platform.OS === "web" && !windowsDesktop) return;
     const [day, storedMeals] = await Promise.all([
       loadDiaryDay(today),
       listMealsByLocalDateRange(today, addCalendarDays(today, 1), { limit: 5_000 }),
@@ -958,8 +960,8 @@ export default function App() {
   };
 
   const saveApiSetup = async (draft: ApiSetupDraft) => {
-    if (Platform.OS === "web") {
-      setSetupError(localizedCopy(language, "为避免密钥落入浏览器存储，预览版禁止保存。请使用 Android/iOS App。", "Saving is disabled in the browser preview so credentials never enter browser storage. Use the Android or iOS app."));
+    if (Platform.OS === "web" && !windowsDesktop) {
+      setSetupError(localizedCopy(language, "为避免密钥落入浏览器存储，预览版禁止保存。请使用 Android、iOS 或 Windows 桌面 App。", "Saving is disabled in the browser preview so credentials never enter browser storage. Use the Android, iOS, or Windows desktop app."));
       return;
     }
     invalidateReportWork();
@@ -1135,7 +1137,7 @@ export default function App() {
     try {
       await requirePendingPrivateFileCleanup(language);
       const secret = await readApiSecret(active.config.id);
-      if (!secret) throw new Error(localizedCopy(language, "Keychain/Keystore 中的 API 凭据已丢失。", "The API credential is missing from Keychain/Keystore."));
+      if (!secret) throw new Error(localizedCopy(language, "系统凭据保护区中的 API 凭据已丢失。", "The API credential is missing from protected system storage."));
       const adapter = createAiProvider(active.config);
       const padding = nextPhoto.base64.endsWith("==") ? 2 : nextPhoto.base64.endsWith("=") ? 1 : 0;
       const byteLength = Math.floor((nextPhoto.base64.length * 3) / 4) - padding;
@@ -1210,7 +1212,7 @@ export default function App() {
         language,
         retainedPhotoUri: null,
       });
-      if (retainPhotos) {
+      if (retainPhotos && !windowsDesktop) {
         const retained = await retainMealPhoto(
           photo.uri,
           draftMeal.id,
@@ -1307,7 +1309,7 @@ export default function App() {
     activeLanguage = language,
     includeCachedReport = true,
   ) => {
-    if (Platform.OS === "web") return;
+    if (Platform.OS === "web" && !windowsDesktop) return;
     const loadRunId = ++reportLoadRun.current;
     try {
       const spec = createCalendarPeriod(nextPeriod, today, today);
@@ -1426,7 +1428,7 @@ export default function App() {
     setReportError(null);
     try {
       const secret = await readApiSecret(activeConfiguration.config.id);
-      if (!secret) throw new Error(localizedCopy(activeLanguage, "Keychain/Keystore 中的 API 凭据已丢失。", "The API credential is missing from Keychain/Keystore."));
+      if (!secret) throw new Error(localizedCopy(activeLanguage, "系统凭据保护区中的 API 凭据已丢失。", "The API credential is missing from protected system storage."));
       const context = reportContext({
         evaluation: activeEvaluation,
         period: activePeriod,
@@ -1552,7 +1554,7 @@ export default function App() {
               if (cleanup.remaining > 0) {
                 Alert.alert(
                   localizedCopy(language, "凭据删除将在启动时重试", "Credential deletion will retry at startup"),
-                  localizedCopy(language, "API 配置已移除；Keychain/Keystore 删除失败时，凭据标识仍保留在持久重试队列。", "The API configuration was removed. If Keychain/Keystore deletion failed, its credential id remains in the durable retry queue."),
+                  localizedCopy(language, "API 配置已移除；系统凭据删除失败时，凭据标识仍保留在持久重试队列。", "The API configuration was removed. If protected-system credential deletion failed, its credential id remains in the durable retry queue."),
                 );
               }
             } catch (error) {
@@ -1677,7 +1679,7 @@ export default function App() {
       await setSetting(LANGUAGE_PREFERENCE_SETTING_KEY, nextPreference);
       setLanguagePreference(nextPreference);
       let activeProfile = profile;
-      if (Platform.OS !== "web") {
+      if (Platform.OS !== "web" || windowsDesktop) {
         const stored = await saveProfile({ ...profile, locale: localeTag(nextLanguage) });
         activeProfile = storedProfileToDomain(stored);
         setProfile(activeProfile);
@@ -1834,6 +1836,16 @@ export default function App() {
           enterpriseWorkspace={configuration.enterpriseWorkspace ?? null}
           profile={profileToDraft(profile)}
           retainPhotos={retainPhotos}
+          photoRetentionAvailable={!windowsDesktop}
+          credentialStoreLabel={windowsDesktop
+            ? localizedCopy(language, "Windows 凭据保护", "Windows Credential Protection")
+            : "SecureStore"}
+          privacyUrl={windowsDesktop
+            ? "https://github.com/lzy2767865503-pixel/calorie-steward-ai/blob/main/docs/privacy/windows.md"
+            : undefined}
+          supportUrl={windowsDesktop
+            ? "https://github.com/lzy2767865503-pixel/calorie-steward-ai/issues"
+            : undefined}
           savingProfile={savingProfile}
           languagePreference={languagePreference}
           onEditApi={editApi}
@@ -1841,6 +1853,14 @@ export default function App() {
           onSaveProfile={saveProfileDraft}
           onLanguagePreferenceChange={changeLanguagePreference}
           onRetainPhotosChange={(value) => {
+            if (windowsDesktop) {
+              setRetainPhotos(false);
+              Alert.alert(
+                localizedCopy(language, "Windows 隐私保护", "Windows privacy protection"),
+                localizedCopy(language, "Windows 版本只在内存中处理重编码 JPEG，不保留餐食照片。", "The Windows release processes the re-encoded JPEG in memory and does not retain meal photos."),
+              );
+              return;
+            }
             if (configuration.setupProviderKind === "enterprise") {
               setRetainPhotos(false);
               Alert.alert(localizedCopy(language, "由企业策略管理", "Managed by enterprise policy"), localizedCopy(language, "企业托管模式不保留原始餐食照片。", "Enterprise-managed mode does not retain original meal photos."));

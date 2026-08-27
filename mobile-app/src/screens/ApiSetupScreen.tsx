@@ -328,7 +328,7 @@ export function ApiSetupScreen({
                   </View>
                   <View style={styles.managedCopy}>
                     <Text style={styles.managedTitle}>{t("企业托管连接", "Enterprise-managed connection")}</Text>
-                    <Text style={styles.managedBody}>{t("模型、密钥和费用由组织网关管理；手机只保存工作区 Token。", "The organization gateway manages models, keys, and billing; the phone stores only a workspace token.")}</Text>
+                    <Text style={styles.managedBody}>{t("模型、密钥和费用由组织网关管理；此设备只保存工作区 Token。", "The organization gateway manages models, keys, and billing; this device stores only a workspace token.")}</Text>
                   </View>
                 </View>
                 <Field
@@ -445,7 +445,7 @@ export function ApiSetupScreen({
                   secureTextEntry={!showKey}
                   style={styles.secretInput}
                   value={draft.apiKey}
-                  placeholder={mayReuseExistingSecret ? t("留空保留原凭据", "Leave blank to keep saved credential") : t("仅存入 Keychain / Keystore", "Stored only in Keychain / Keystore")}
+                  placeholder={mayReuseExistingSecret ? t("留空保留原凭据", "Leave blank to keep saved credential") : t("仅存入系统凭据保护区", "Stored only in protected system credential storage")}
                   placeholderTextColor="#93A0B1"
                   onChangeText={(apiKey) => setDraft((current) => ({ ...current, apiKey }))}
                 />
@@ -461,7 +461,7 @@ export function ApiSetupScreen({
               <Text style={styles.helper}>
                 {isEnterprise
                   ? t("请使用企业网关签发的短期、可撤销 Token；不要填写 AI 厂商主 Key。", "Use a short-lived, revocable token issued by the enterprise gateway. Do not enter the AI provider's master key.")
-                  : t("推荐填写自建 HTTPS 代理的短期 Token；手机直接保存厂商主 Key 仅适合个人使用。", "A short-lived token from your own HTTPS proxy is recommended. Saving a provider master key directly on the phone is suitable only for personal use.")}
+                  : t("推荐填写自建 HTTPS 代理的短期 Token；在设备上直接保存厂商主 Key 仅适合个人使用。", "A short-lived token from your own HTTPS proxy is recommended. Saving a provider master key directly on the device is suitable only for personal use.")}
               </Text>
             </View>
           </View>
