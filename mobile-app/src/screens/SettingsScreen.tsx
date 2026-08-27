@@ -328,6 +328,7 @@ export function SettingsScreen({
             <Text style={styles.cardTitle}>{t("卡路里管家 v1.2.3", "Calorie Steward v1.2.3")}</Text>
             <Text style={styles.developerAttribution}>{officialAttribution(language)}</Text>
             <Text style={styles.cardBody}>{t("这是官方版本的作者署名。官方构建门禁会在署名意外缺失时失败；由于项目开源，第三方 fork 仍可依法修改源代码和界面。", "This is the official build attribution. The official build gate fails if it is accidentally removed. Because the project is open source, third-party forks can still lawfully modify the source and interface.")}</Text>
+            <Text style={styles.cardBody}>{t("应用源代码采用 Apache License 2.0；LICENSE、NOTICE 与第三方声明随 Windows 安装包一起提供。", "The application source is licensed under Apache License 2.0. LICENSE, NOTICE, and third-party notices are included with the Windows package.")}</Text>
             {privacyUrl || supportUrl ? (
               <View style={styles.dataActions}>
                 {privacyUrl ? (

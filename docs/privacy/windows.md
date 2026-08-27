@@ -8,7 +8,7 @@ Calorie Steward for Windows is authored and published by **LAI ZEYU (来泽宇)*
 
 The app stores structured meal records, profile references, report results, language choice, and confirmed AI-provider configuration in an app-private SQLite database on the user's Windows account. API credentials are stored separately with Electron `safeStorage`, which uses Windows operating-system credential encryption. The app does not include an API credential, create a developer account, or operate developer-controlled cloud storage.
 
-The Windows edition does not retain meal photos. A selected source image is read in renderer memory, resized, re-encoded as JPEG, and stripped of EXIF/GPS metadata before analysis. The source file is not copied into app storage. The in-memory JPEG is released after cancel, retry, or saving the structured record.
+The Windows edition does not retain meal photos. A selected source image is read in renderer memory, resized, re-encoded as JPEG, and stripped of EXIF/GPS metadata before analysis. The source file is not copied into app storage. The in-memory JPEG is released after cancel, retake, saving the structured record, or closing the app. Retrying an analysis intentionally reuses the same in-memory JPEG.
 
 ## Data sent to a service chosen by the user
 
@@ -20,7 +20,7 @@ The Windows app has no developer analytics, advertising SDK, crash-reporting ser
 
 ## Export and deletion
 
-The user can export a JSON copy of structured diet records through a Windows save dialog. API credentials, photos, local file paths, enterprise gateway details, and organization policies are excluded. The Settings screen can delete the configured credential and all local diet data. Uninstalling the Store package removes its app-local records; an exported file remains wherever the user saved it.
+The user can export a JSON copy of structured diet records through a Windows save dialog. API credentials, photos, local file paths, enterprise gateway details, and organization policies are excluded. **Delete all diet data** removes meals, day-completion states, reports, and retained photos, but intentionally keeps the personal reference, language preference, provider configuration, and protected credential. **Delete credential** separately removes the active protected credential. Uninstalling the Store package removes the remaining app-local state; the exact package-removal behavior is a mandatory pre-release Windows test. An exported file remains wherever the user saved it.
 
 ## Children and sensitive health information
 

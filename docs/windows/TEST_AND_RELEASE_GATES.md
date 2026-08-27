@@ -9,7 +9,7 @@ Author and publisher: LAI ZEYU (来泽宇)
 
 - Mobile/product attribution and bilingual gates.
 - TypeScript strict type-check.
-- 179 product tests, including five Windows-only in-memory photo/export boundary tests.
+- 183 product tests, including Windows-only in-memory photo, image-safety, and export boundary tests.
 - Seven Electron/package tests for path confinement, security headers, encrypted credential lifecycle, corrupt-store refusal, metadata consistency, and fail-closed Store identity injection.
 - Expo web export with SQLite WASM and font assets.
 - Electron runtime smoke: real preload bridge, sandbox, cross-origin isolation, UI bootstrap, and an operating-system encrypted credential set/read/delete round trip in an isolated temporary profile.
@@ -29,6 +29,13 @@ The `pass-b-installed-smoke` job downloads Pass A rather than rebuilding. It ver
 
 This is the second automated pass and is intentionally downstream of Pass A.
 
+The NSIS and ZIP files from these two jobs are unsigned QA evidence, not public
+release assets. A public GitHub Windows binary must be rebuilt from the exact
+release commit, Authenticode-signed with a trusted publisher certificate and
+timestamp, and pass `Get-AuthenticodeSignature` verification before upload. The
+existing Android `v1.2.3` tag must not be reused; the Windows release uses a
+source-matching platform tag such as `windows-v1.2.3`.
+
 ## Exact Store package sideload gate
 
 After Partner Center name reservation, repository variables provide the exact identity and publisher. A manual workflow builds the unsigned Store AppX, unpacks and checks its manifest, creates an ephemeral same-publisher test certificate, signs a temporary copy, trusts it only on the disposable CI account, installs/launches/probes/uninstalls the copy, and removes the certificate. The uploaded Partner Center candidate remains the original unsigned package; no test certificate or test-signed package is uploaded.
@@ -37,12 +44,13 @@ After Partner Center name reservation, repository variables provide the exact id
 
 Before GitHub Release or Microsoft certification submission, a clean Windows 11 standard-user session must also pass:
 
-- system picker with licensed JPEG, PNG, WebP, HEIC/HEIF inputs and cancel flow;
+- system picker with licensed JPEG, PNG, and WebP inputs plus the cancel flow;
 - JPEG resize/re-encode, EXIF/GPS removal verification, AI transfer consent, and memory release;
 - SQLite create, close/reopen persistence, JSON export, delete-all, and credential replace/delete through Windows protection;
 - offline and invalid-credential failure behavior without fabricated analysis;
 - 100%, 125%, 150%, and 200% scaling; 1366×768; keyboard-only use; Narrator; high contrast;
 - Store AppX fresh install, upgrade from the prior candidate, uninstall, and reinstall;
+- Partner Center generative-AI declaration selected and automatic Windows/OneDrive app-data backup cleared;
 - Microsoft Defender scan;
 - latest Windows App Certification Kit pass.
 

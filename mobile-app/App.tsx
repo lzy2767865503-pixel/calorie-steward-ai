@@ -166,6 +166,7 @@ import {
 import { colors, spacing, textStyles } from "./src/ui/theme";
 import { officialAttribution } from "./src/brand/officialAttribution";
 import { isWindowsDesktopRuntime } from "./src/platform/desktopRuntime";
+import { photoPreviewUri } from "./src/platform/photoPreview";
 import * as Sharing from "./src/platform/sharing";
 import {
   I18nProvider,
@@ -1796,7 +1797,7 @@ export default function App() {
       ) : null}
       {appSurfaceReady && screen === "analysis" && photo ? (
         <AnalysisScreen
-          photoUri={photo.uri}
+          photoUri={photoPreviewUri(photo, windowsDesktop)}
           providerLabel={configuration ? providerDisplayName(configuration.config.displayName, language) : "AI API"}
           error={analysisError}
           {...(analysisError ? { onRetry: () => void analyzePhoto(photo) } : {})}
@@ -1805,7 +1806,7 @@ export default function App() {
       ) : null}
       {appSurfaceReady && screen === "review" && photo && analysisResult && configuration ? (
         <ReviewScreen
-          photoUri={photo.uri}
+          photoUri={photoPreviewUri(photo, windowsDesktop)}
           analysis={analysisToReview(analysisResult.data)}
           providerLabel={providerDisplayName(configuration.config.displayName, language)}
           model={analysisResult.metadata.model}

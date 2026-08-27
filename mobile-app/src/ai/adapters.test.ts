@@ -444,6 +444,10 @@ test('Anthropic success uses the image and structured-output contract', async ()
   assert.equal(image.data, photo().base64Data);
   const headers = new Headers(mock.calls[0]!.init.headers);
   assert.equal(headers.get('anthropic-version'), '2023-06-01');
+  assert.equal(
+    headers.get('anthropic-dangerous-direct-browser-access'),
+    'true',
+  );
 });
 
 test('custom contract verifies its manifest and correlates the structured response', async () => {

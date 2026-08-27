@@ -153,7 +153,11 @@ if (hasLock) {
       registerIpc();
       return createWindow();
     })
-    .catch(() => app.quit());
+    .catch((error) => {
+      const message = error instanceof Error ? error.message : String(error);
+      console.error(`Calorie Steward startup failed: ${message}`);
+      app.quit();
+    });
 
   app.on("window-all-closed", () => app.quit());
   app.on("before-quit", (event) => {

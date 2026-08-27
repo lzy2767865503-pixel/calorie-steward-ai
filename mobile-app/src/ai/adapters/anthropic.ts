@@ -23,6 +23,11 @@ import type {
 } from '../types';
 import { BaseAiProviderAdapter } from './base';
 
+const ANTHROPIC_CLIENT_HEADERS = Object.freeze({
+  'anthropic-version': '2023-06-01',
+  'anthropic-dangerous-direct-browser-access': 'true',
+});
+
 export class AnthropicMessagesAdapter extends BaseAiProviderAdapter {
   constructor(config: ProviderConfig, fetchImpl: FetchLike) {
     super(config, fetchImpl);
@@ -45,7 +50,10 @@ export class AnthropicMessagesAdapter extends BaseAiProviderAdapter {
       config: this.config,
       credentials: request.credentials,
       url: joinProviderUrl(this.config.baseUrl, 'messages'),
-      extraHeaders: { 'anthropic-version': this.config.apiVersion },
+      extraHeaders: {
+        ...ANTHROPIC_CLIENT_HEADERS,
+        'anthropic-version': this.config.apiVersion,
+      },
       body: {
         model: this.config.visionModel,
         max_tokens: 6_000,
@@ -106,7 +114,10 @@ export class AnthropicMessagesAdapter extends BaseAiProviderAdapter {
       config: this.config,
       credentials: request.credentials,
       url: joinProviderUrl(this.config.baseUrl, 'messages'),
-      extraHeaders: { 'anthropic-version': this.config.apiVersion },
+      extraHeaders: {
+        ...ANTHROPIC_CLIENT_HEADERS,
+        'anthropic-version': this.config.apiVersion,
+      },
       body: {
         model: this.config.reportModel,
         max_tokens: 4_000,

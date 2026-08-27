@@ -25,6 +25,11 @@ test("Windows package config is hardened and Store identity is injected", () => 
   assert.equal(config.appx.applicationId, "CalorieSteward");
   assert.equal(config.appx.publisherDisplayName, "LAI ZEYU");
   assert.deepEqual(config.appx.languages, ["en-US", "zh-CN"]);
+  assert.deepEqual(config.electronLanguages, ["en-US", "zh-CN"]);
+  assert.deepEqual(
+    config.extraResources.map((entry) => entry.to),
+    ["legal/LICENSE", "legal/NOTICE", "legal/THIRD_PARTY_NOTICES.md"],
+  );
   assert.equal(config.afterPack, "./scripts/after-pack.cjs");
 });
 

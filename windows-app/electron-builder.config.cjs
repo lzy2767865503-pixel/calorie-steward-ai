@@ -18,7 +18,7 @@ module.exports = {
   asar: true,
   afterPack: "./scripts/after-pack.cjs",
   compression: "maximum",
-  electronLanguages: ["en", "zh_CN"],
+  electronLanguages: ["en-US", "zh-CN"],
   directories: {
     output: "release",
     buildResources: "build",
@@ -30,6 +30,14 @@ module.exports = {
     "!**/*.map",
     "!**/test/**",
     "!**/scripts/**",
+  ],
+  extraResources: [
+    { from: "../LICENSE", to: "legal/LICENSE" },
+    { from: "../NOTICE", to: "legal/NOTICE" },
+    {
+      from: "../THIRD_PARTY_NOTICES.md",
+      to: "legal/THIRD_PARTY_NOTICES.md",
+    },
   ],
   extraMetadata: {
     name: "calorie-steward-windows",

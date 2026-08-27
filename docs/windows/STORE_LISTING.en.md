@@ -14,9 +14,11 @@ Key points:
 - explicit confirmation before sending a photo or aggregate report to the endpoint you choose;
 - transparent nutrition-reference coverage and uncertainty ranges;
 - bilingual Chinese and English interface;
-- local JSON export and complete local-data deletion.
+- local JSON export plus separate controls to delete the protected credential and all diet records.
 
 An internet connection and a user-supplied supported AI service or organizational gateway are required for AI analysis and AI reports. The service's own terms, data retention, and charges apply. Core record storage and previously saved summaries remain local.
+
+**Delete all diet data** removes meals, day-completion states, reports, and retained photos. It intentionally keeps the personal reference, language preference, provider configuration, and protected credential; the credential has its own **Delete credential** control. Uninstalling removes the remaining app-local state, while exported files remain where the user saved them.
 
 Calorie Steward supports everyday journaling and pattern awareness. It is not a medical device, diagnosis, calorie laboratory, or substitute for a doctor or dietitian.
 

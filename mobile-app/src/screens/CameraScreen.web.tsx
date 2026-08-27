@@ -18,13 +18,14 @@ import {
   type RawCapture,
 } from "../app/captureLifecycle";
 import { useI18n } from "../i18n";
+import { calculateSanitizedJpegDimensions } from "../platform/imageSafety";
 import { Notice, PrimaryButton } from "../ui/components";
 import { colors, spacing, textStyles } from "../ui/theme";
 
 export type PreparedPhoto = PreparedCapturePhoto;
 
 const MAX_SOURCE_BYTES = 25 * 1024 * 1024;
-const MAX_OUTPUT_WIDTH = 1600;
+const SUPPORTED_IMAGE_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
 
 function readImageDimensions(uri: string): Promise<{ width: number; height: number }> {
   return new Promise((resolve, reject) => {
@@ -39,7 +40,7 @@ async function chooseImage(): Promise<RawCapture> {
   const file = await new Promise<File>((resolve, reject) => {
     const input = document.createElement("input");
     input.type = "file";
-    input.accept = "image/jpeg,image/png,image/webp,image/heic,image/heif";
+    input.accept = "image/jpeg,image/png,image/webp";
     input.setAttribute("capture", "environment");
     input.addEventListener("cancel", () => reject(new CaptureCancelledError()), { once: true });
     input.onchange = () => {
@@ -52,12 +53,15 @@ async function chooseImage(): Promise<RawCapture> {
   if (file.size <= 0 || file.size > MAX_SOURCE_BYTES) {
     throw new Error("Choose an image between 1 byte and 25 MB.");
   }
+  if (!SUPPORTED_IMAGE_TYPES.has(file.type.toLowerCase())) {
+    throw new Error("Choose a JPEG, PNG, or WebP image.");
+  }
   const uri = URL.createObjectURL(file);
   try {
     const dimensions = await readImageDimensions(uri);
-    if (dimensions.width < 1 || dimensions.height < 1) {
-      throw new Error("The selected image dimensions are invalid.");
-    }
+    // Reject oversized or decompression-bomb-like dimensions before allocating
+    // the output canvas. Chromium still owns the initial guarded image decode.
+    calculateSanitizedJpegDimensions(dimensions.width, dimensions.height);
     return { uri, ...dimensions };
   } catch (error) {
     URL.revokeObjectURL(uri);
@@ -74,9 +78,7 @@ async function reencodeJpeg(raw: RawCapture): Promise<{
   const image = new Image();
   image.src = raw.uri;
   await image.decode();
-  const scale = Math.min(1, MAX_OUTPUT_WIDTH / raw.width);
-  const width = Math.max(1, Math.round(raw.width * scale));
-  const height = Math.max(1, Math.round(raw.height * scale));
+  const { width, height } = calculateSanitizedJpegDimensions(raw.width, raw.height);
   const canvas = document.createElement("canvas");
   canvas.width = width;
   canvas.height = height;

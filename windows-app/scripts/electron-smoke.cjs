@@ -146,6 +146,16 @@ async function main() {
             const credentialReadBack = await bridge.secrets.get(smokeKey);
             await bridge.secrets.delete(smokeKey);
             const credentialAfterDelete = await bridge.secrets.get(smokeKey);
+            const canvas = document.createElement("canvas");
+            canvas.width = 2;
+            canvas.height = 2;
+            const context = canvas.getContext("2d");
+            if (!context) throw new Error("Preview canvas unavailable.");
+            context.fillStyle = "#0B766E";
+            context.fillRect(0, 0, 2, 2);
+            const preview = document.createElement("img");
+            preview.src = canvas.toDataURL("image/jpeg", 0.82);
+            await preview.decode();
             return {
               platform: bridge.platform,
               version: bridge.version,
@@ -161,6 +171,8 @@ async function main() {
               ),
               credentialRoundTrip:
                 credentialReadBack === smokeValue && credentialAfterDelete === null,
+              inMemoryJpegPreviewLoaded:
+                preview.naturalWidth === 2 && preview.naturalHeight === 2,
               text,
             };
           }
@@ -184,6 +196,9 @@ async function main() {
     }
     if (!result.credentialRoundTrip) {
       throw new Error("The protected credential bridge round-trip failed.");
+    }
+    if (!result.inMemoryJpegPreviewLoaded) {
+      throw new Error("The in-memory JPEG preview did not decode in Electron.");
     }
     if (/browser preview|浏览器只用于检查首页设计/i.test(result.text)) {
       throw new Error("Electron was incorrectly gated as a browser preview.");
