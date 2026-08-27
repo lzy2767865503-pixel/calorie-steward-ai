@@ -2,6 +2,7 @@
 
 const fs = require("node:fs/promises");
 const path = require("node:path");
+const crypto = require("node:crypto");
 
 const KEY_PATTERN = /^[A-Za-z0-9._-]{1,160}$/;
 
@@ -69,17 +70,16 @@ function createSecretStore({ safeStorage, directory }) {
 
   const writeRecord = async (record) => {
     await fs.mkdir(directory, { recursive: true });
-    const temporary = `${filePath}.${process.pid}.tmp`;
-    await fs.writeFile(temporary, `${JSON.stringify(record)}\n`, {
-      encoding: "utf8",
-      mode: 0o600,
-      flag: "wx",
-    });
+    const temporary = `${filePath}.${process.pid}.${crypto.randomUUID()}.tmp`;
     try {
+      await fs.writeFile(temporary, `${JSON.stringify(record)}\n`, {
+        encoding: "utf8",
+        mode: 0o600,
+        flag: "wx",
+      });
       await fs.rename(temporary, filePath);
-    } catch (error) {
+    } finally {
       await fs.rm(temporary, { force: true });
-      throw error;
     }
   };
 

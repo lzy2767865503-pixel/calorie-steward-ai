@@ -1,7 +1,7 @@
 # Calorie Steward Windows test and release gates
 
 Version under test: 1.2.3  
-Target: Windows 11 x64, Microsoft Store AppX and GitHub NSIS/ZIP  
+Target: Windows 11 x64, Microsoft Store AppX and GitHub signed portable ZIP  
 Status: release candidate; not yet certified or published
 Author and publisher: LAI ZEYU (来泽宇)
 
@@ -10,35 +10,62 @@ Author and publisher: LAI ZEYU (来泽宇)
 - Mobile/product attribution and bilingual gates.
 - TypeScript strict type-check.
 - 183 product tests, including Windows-only in-memory photo, image-safety, and export boundary tests.
-- Seven Electron/package tests for path confinement, security headers, encrypted credential lifecycle, corrupt-store refusal, metadata consistency, and fail-closed Store identity injection.
+- Ten Electron/package tests for path confinement, security headers, encrypted credential lifecycle, corrupt-store refusal, metadata consistency, fail-closed production Store identity injection, public-artifact isolation, trusted-build delegation, and exact `LAI ZEYU`/`来泽宇` signing gates.
 - Expo web export with SQLite WASM and font assets.
 - Electron runtime smoke: real preload bridge, sandbox, cross-origin isolation, UI bootstrap, and an operating-system encrypted credential set/read/delete round trip in an isolated temporary profile.
 - Full npm audit at `high` threshold for both dependency trees.
 
 These checks can run on a developer machine, but they do not prove Windows packaging.
 
-## Pass A — clean Windows build
+## Pass A — clean Windows build and packaged lifecycle
 
-The `pass-a-build-and-test` GitHub Actions job starts from a clean `windows-latest` runner, installs both lockfiles, reruns every source/runtime check, captures a non-sensitive desktop screenshot, builds x64 NSIS and ZIP artifacts, generates two CycloneDX SBOMs, and records SHA-256 for every top-level release file.
+The `private-two-pass-qa` GitHub Actions job starts from a clean `windows-latest` runner, installs both lockfiles, reruns every source/runtime check, captures a non-sensitive desktop screenshot, builds private x64 NSIS and ZIP candidates, generates two CycloneDX SBOMs, and records SHA-256 for every top-level release file. Pass A then checks the packaged React DOM, exact `LAI ZEYU（来泽宇）` author, executable hash marker, portable launch, NSIS install, installed launch, uninstall, and user-data removal.
 
 Pass A is successful only when the workflow concludes successfully on the exact commit intended for release.
 
-## Pass B — independent packaged smoke
+## Pass B — same-byte repeat
 
-The `pass-b-installed-smoke` job downloads Pass A rather than rebuilding. It verifies the recorded hashes, launches the portable ZIP, probes the protected loopback UI, silently installs the NSIS build, launches and probes the installed app, then uninstalls it and verifies that the executable was removed.
+The same job repeats the complete packaged lifecycle without rebuilding. This keeps the unsigned candidate inside one controlled runner while proving that Pass A and Pass B used identical NSIS and ZIP hashes.
 
-This is the second automated pass and is intentionally downstream of Pass A.
+This is the second automated pass and is intentionally sequential after Pass A.
 
-The NSIS and ZIP files from these two jobs are unsigned QA evidence, not public
-release assets. A public GitHub Windows binary must be rebuilt from the exact
-release commit, Authenticode-signed with a trusted publisher certificate and
-timestamp, and pass `Get-AuthenticodeSignature` verification before upload. The
+Unsigned NSIS/ZIP bytes and raw evidence are never uploaded from private QA;
+only a canonical PASS/BLOCKED summary is written to the GitHub job summary. The
+public GitHub edition is a portable ZIP rather than an NSIS installer, because
+the release policy forbids shipping unsigned third-party installer helper PEs.
+Every PE recursively discovered in the ZIP and extracted ASAR content must have
+exactly one embedded SHA-256 Authenticode signature with an RFC 3161 timestamp,
+must produce zero warnings under current Windows SDK SignTool
+`verify /pa /all /v /tw`, and must use a trusted certificate whose verified
+signer CN/SimpleName is exactly `LAI ZEYU` or `来泽宇`. The certificate and
+timestamp also pass `Get-AuthenticodeSignature` plus online chain verification. The
 existing Android `v1.2.3` tag must not be reused; the Windows release uses a
 source-matching platform tag such as `windows-v1.2.3`.
 
+The manual `Trusted Windows GitHub release` workflow is the only path allowed to
+create that public release. Its YAML gate accepts only the repository owner's
+dispatch from `main`; the GitHub Environment must independently restrict
+deployment branches to `main` before credentials are configured. Current CA/B
+Forum rules keep the private key in a
+hardware-backed service rather than an exportable PFX. The workflow therefore
+requires an SSL.com individual eSigner credential, downloads the official
+CodeSignTool 1.3.2 archive with pinned archive and JAR SHA-256 values, and
+delegates every Electron portable-package PE signing callback to that cloud-HSM credential.
+It recursively requires every shipped EXE/DLL/native binary in the portable ZIP
+and extracted ASAR content to have a trusted timestamp and a certificate
+SimpleName exactly equal to `LAI ZEYU` or `来泽宇`. Electron `.node` PE files are
+signed through an exclusive temporary `.dll` copy because CodeSignTool's
+documented extension allowlist does not include `.node`; the exact signed bytes
+are copied back and the temporary file is deleted. The workflow runs the same
+signed ZIP through two process-bound UI rounds, creates a private draft,
+downloads and hashes every remote asset, removes signing state, rechecks the
+remote tag commit, and only then publishes.
+Missing credentials, wrong identity, unsigned nested binaries, an untrusted
+chain, a missing timestamp, or a third-party signer all fail closed.
+
 ## Exact Store package sideload gate
 
-After Partner Center name reservation, repository variables provide the exact identity and publisher. A manual workflow builds the unsigned Store AppX, unpacks and checks its manifest, creates an ephemeral same-publisher test certificate, signs a temporary copy, trusts it only on the disposable CI account, installs/launches/probes/uninstalls the copy, and removes the certificate. The uploaded Partner Center candidate remains the original unsigned package; no test certificate or test-signed package is uploaded.
+Partner Center has reserved Store ID `9PBQ8LD3VKTS` and Identity `LAIZEYU.CalorieStewardbyLAIZEYU`; repository variables provide that exact identity and the account's technical publisher, and the scripts hard-lock both. A manually approved workflow from the owner's `main` branch on a dedicated self-hosted, active-desktop, elevated Windows runner builds one unsigned Store AppX. It then performs two sequential clean passes on those identical source bytes. Each pass unpacks and checks the manifest, creates an ephemeral same-publisher test certificate, signs only a temporary copy, runs bounded strict WACK `reset`/`test`, requires the report root to prove `LATEST_VERSION=TRUE` and `PARTIAL_RUN=FALSE`, binds exactly one PASS/NOT-APPLICABLE result to every uniquely identified test, installs and launches it, verifies the exact installed executable plus PID/hash-bound UI/author marker and listener, uninstalls it, and removes and rechecks the certificate. The canonical summary rejects any source commit, AppX hash, executable hash, or identity difference between Pass A and Pass B. The original unsigned Partner Center candidate and raw evidence stay private inside the runner and are deleted after the summary is written. Secure transfer to Partner Center is a separate controlled step.
 
 ## Interactive Windows release blockers
 

@@ -1,0 +1,350 @@
+name: Trusted Windows GitHub release
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: Existing immutable tag, exactly windows-v1.2.3
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+concurrency:
+  group: trusted-windows-release
+  cancel-in-progress: false
+
+jobs:
+  signed-release:
+    name: LAI ZEYU signed portable, two passes, then Release
+    if: github.ref == 'refs/heads/main' && github.actor == 'lzy2767865503-pixel'
+    runs-on: windows-latest
+    timeout-minutes: 180
+    environment: trusted-windows-release
+    env:
+      RELEASE_TAG: ${{ inputs.release_tag }}
+    steps:
+      - name: Check out the selected tag without persisted credentials
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.release_tag }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Require approved immutable source on main and an unused Release
+        id: source
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          APPROVED_TAG: ${{ vars.CALORIE_WINDOWS_RELEASE_APPROVED_TAG }}
+        run: |
+          if ($env:RELEASE_TAG -cne 'windows-v1.2.3' -or $env:APPROVED_TAG -cne $env:RELEASE_TAG) {
+            throw "Release tag is not the exact protected/approved windows-v1.2.3 tag."
+          }
+          $TagCommit = (& git rev-parse "$env:RELEASE_TAG^{}").Trim()
+          $HeadCommit = (& git rev-parse HEAD).Trim()
+          if ($LASTEXITCODE -ne 0 -or $TagCommit -cne $HeadCommit -or $HeadCommit -notmatch '^[a-f0-9]{40}$') {
+            throw "Tag and checked-out source commit differ."
+          }
+          & git merge-base --is-ancestor $HeadCommit origin/main
+          if ($LASTEXITCODE -ne 0) { throw "Release tag is not reachable from origin/main." }
+          $Version = (Get-Content windows-app/package.json -Raw | ConvertFrom-Json).version
+          if ($Version -cne '1.2.3') { throw "Package version and immutable Windows tag differ." }
+          & gh release view $env:RELEASE_TAG *> $null
+          if ($LASTEXITCODE -eq 0) { throw "A GitHub Release already exists for $env:RELEASE_TAG." }
+          "commit=$HeadCommit" >> $env:GITHUB_OUTPUT
+
+      - name: Set up Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: |
+            mobile-app/package-lock.json
+            windows-app/package-lock.json
+
+      - name: Set up Java for the checksum-pinned SSL.com client
+        uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5.7.0
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Install exact dependencies and run source verification
+        shell: pwsh
+        run: |
+          npm --prefix mobile-app ci
+          npm --prefix windows-app ci
+          npm --prefix windows-app run verify
+
+      - name: Reject malformed WACK and Authenticode policy evidence
+        shell: pwsh
+        run: ./windows-app/test/windows-release-policy.test.ps1
+
+      - name: Require the SSL.com individual eSigner credential
+        shell: pwsh
+        env:
+          SSL_ESIGNER_USERNAME: ${{ secrets.SSL_ESIGNER_USERNAME }}
+          SSL_ESIGNER_PASSWORD: ${{ secrets.SSL_ESIGNER_PASSWORD }}
+          SSL_ESIGNER_CREDENTIAL_ID: ${{ secrets.SSL_ESIGNER_CREDENTIAL_ID }}
+          SSL_ESIGNER_TOTP_SECRET: ${{ secrets.SSL_ESIGNER_TOTP_SECRET }}
+        run: |
+          $Required = @(
+            $env:SSL_ESIGNER_USERNAME,
+            $env:SSL_ESIGNER_PASSWORD,
+            $env:SSL_ESIGNER_CREDENTIAL_ID,
+            $env:SSL_ESIGNER_TOTP_SECRET
+          )
+          if (@($Required | Where-Object { [string]::IsNullOrWhiteSpace($_) }).Count -gt 0) {
+            throw "SSL.com eSigner secrets are missing; no Windows PE may be published."
+          }
+
+      - name: Prepare checksum-pinned SSL.com CodeSignTool 1.3.2
+        id: codesigntool
+        shell: pwsh
+        run: |
+          $ToolRoot = Join-Path $env:RUNNER_TEMP 'sslcom-codesigntool-v1.3.2'
+          $Archive = Join-Path $env:RUNNER_TEMP 'CodeSignTool-v1.3.2.zip'
+          if (Test-Path -LiteralPath $ToolRoot) { throw "Pinned CodeSignTool directory already exists." }
+          Invoke-WebRequest `
+            -Uri 'https://github.com/SSLcom/CodeSignTool/releases/download/v1.3.2/CodeSignTool-v1.3.2.zip' `
+            -OutFile $Archive
+          $ArchiveHash = (Get-FileHash -LiteralPath $Archive -Algorithm SHA256).Hash.ToLowerInvariant()
+          if ($ArchiveHash -cne 'f14b1e1ef14bfa1fd00279c363aab0debbf5dcfba0e4bcdce5d22bb771de0e3a') {
+            throw "SSL.com CodeSignTool archive checksum mismatch."
+          }
+          Expand-Archive -LiteralPath $Archive -DestinationPath $ToolRoot
+          Remove-Item -LiteralPath $Archive -Force
+          $Jars = @(Get-ChildItem -LiteralPath $ToolRoot -Recurse -File -Filter 'code_sign_tool-1.3.2.jar')
+          if ($Jars.Count -ne 1) { throw "Pinned SSL.com CodeSignTool JAR is missing or ambiguous." }
+          $JarHash = (Get-FileHash -LiteralPath $Jars[0].FullName -Algorithm SHA256).Hash.ToLowerInvariant()
+          if ($JarHash -cne '312a4a00d21117fadbe1b876cdef8075df94a9d197328b46b7e168b5a5179bb8') {
+            throw "SSL.com CodeSignTool JAR checksum mismatch."
+          }
+          "jar_path=$($Jars[0].FullName)" >> $env:GITHUB_OUTPUT
+          "tool_root=$ToolRoot" >> $env:GITHUB_OUTPUT
+
+      - name: Build one trusted timestamped portable candidate
+        shell: pwsh
+        env:
+          CALORIE_TRUSTED_GITHUB_BUILD: '1'
+          CALORIE_CODESIGNTOOL_JAR: ${{ steps.codesigntool.outputs.jar_path }}
+          SSL_ESIGNER_USERNAME: ${{ secrets.SSL_ESIGNER_USERNAME }}
+          SSL_ESIGNER_PASSWORD: ${{ secrets.SSL_ESIGNER_PASSWORD }}
+          SSL_ESIGNER_CREDENTIAL_ID: ${{ secrets.SSL_ESIGNER_CREDENTIAL_ID }}
+          SSL_ESIGNER_TOTP_SECRET: ${{ secrets.SSL_ESIGNER_TOTP_SECRET }}
+        run: npm --prefix windows-app run build:github-portable
+
+      - name: Generate signed release SBOMs and immutable hashes
+        shell: pwsh
+        run: |
+          npm --prefix mobile-app sbom --sbom-format cyclonedx --sbom-type application |
+            Set-Content windows-app/release/calorie-steward-product.cdx.json -Encoding utf8
+          npm --prefix windows-app sbom --sbom-format cyclonedx --sbom-type application |
+            Set-Content windows-app/release/calorie-steward-electron.cdx.json -Encoding utf8
+          $Archives = @(Get-ChildItem windows-app/release -File -Filter '*.zip')
+          $Sboms = @(Get-ChildItem windows-app/release -File -Filter '*.cdx.json')
+          $Installers = @(Get-ChildItem windows-app/release -File -Filter '*.exe')
+          if ($Archives.Count -ne 1 -or $Sboms.Count -ne 2 -or $Installers.Count -ne 0) {
+            throw "Public GitHub candidate must be one portable ZIP plus two SBOMs and no NSIS installer."
+          }
+          @($Archives + $Sboms) | Sort-Object Name | Get-FileHash -Algorithm SHA256 |
+            ForEach-Object { "$($_.Hash.ToLowerInvariant())  $($_.Path | Split-Path -Leaf)" } |
+            Set-Content windows-app/release/SHA256SUMS.txt -Encoding UTF8
+
+      - name: Signed portable verification round 1
+        shell: pwsh
+        run: ./windows-app/scripts/windows-lifecycle.ps1 -CandidateDirectory ./windows-app/release -Round 1 -EvidenceDirectory ./windows-app/evidence/signed-round-1 -RequireTrustedLaiSignature -PortableOnly
+
+      - name: Signed portable verification round 2 on identical bytes
+        shell: pwsh
+        run: ./windows-app/scripts/windows-lifecycle.ps1 -CandidateDirectory ./windows-app/release -Round 2 -EvidenceDirectory ./windows-app/evidence/signed-round-2 -RequireTrustedLaiSignature -PortableOnly
+
+      - name: Prove both rounds used the same archive and signer
+        shell: pwsh
+        run: |
+          $First = Get-Content windows-app/evidence/signed-round-1/lifecycle.json -Raw | ConvertFrom-Json
+          $Second = Get-Content windows-app/evidence/signed-round-2/lifecycle.json -Raw | ConvertFrom-Json
+          $Archive = @(Get-ChildItem windows-app/release -File -Filter '*.zip')
+          $ArchiveHash = (Get-FileHash -LiteralPath $Archive[0].FullName -Algorithm SHA256).Hash.ToLowerInvariant()
+          if ($First.portableZipSha256 -cne $ArchiveHash -or $Second.portableZipSha256 -cne $ArchiveHash -or
+              $First.signerSimpleName -cne $Second.signerSimpleName -or
+              $First.signerSimpleName -cnotin @('LAI ZEYU', '来泽宇') -or
+              $First.portablePeCount -ne $Second.portablePeCount) {
+            throw "Two signed portable lifecycle rounds do not bind the same archive, signer, and PE inventory."
+          }
+
+      - name: Create a private draft and upload exact verified assets
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $Archive = @(Get-ChildItem windows-app/release -File -Filter '*.zip')
+          if ($Archive.Count -ne 1) { throw "Portable release archive is ambiguous." }
+          & gh release create $env:RELEASE_TAG `
+            --verify-tag --draft `
+            --title "Calorie Steward by LAI ZEYU 1.2.3 for Windows" `
+            --notes "Portable Windows edition created and authored by LAI ZEYU（来泽宇）. Every shipped PE inside the ZIP carries a publicly trusted, timestamped LAI ZEYU/来泽宇 Authenticode signature and passed two same-byte process-bound UI rounds. Microsoft Store certification is tracked separately."
+          if ($LASTEXITCODE -ne 0) { throw "Draft GitHub Release creation failed." }
+          & gh release upload $env:RELEASE_TAG `
+            $Archive[0].FullName `
+            windows-app/release/SHA256SUMS.txt `
+            windows-app/release/calorie-steward-product.cdx.json `
+            windows-app/release/calorie-steward-electron.cdx.json
+          if ($LASTEXITCODE -ne 0) { throw "Asset upload failed; Release remains a private draft." }
+
+      - name: Download draft assets and verify remote bytes before publication
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $RemoteRoot = Join-Path $env:RUNNER_TEMP 'calorie-release-remote-check'
+          if (Test-Path -LiteralPath $RemoteRoot) { throw "Remote-check directory unexpectedly exists." }
+          New-Item -ItemType Directory -Path $RemoteRoot | Out-Null
+          & gh release download $env:RELEASE_TAG --dir $RemoteRoot
+          if ($LASTEXITCODE -ne 0) { throw "Private draft assets could not be downloaded for verification." }
+          $LocalFiles = @(
+            Get-ChildItem windows-app/release -File -Filter '*.zip'
+            Get-Item windows-app/release/SHA256SUMS.txt
+            Get-ChildItem windows-app/release -File -Filter '*.cdx.json'
+          )
+          $RemoteFiles = @(Get-ChildItem -LiteralPath $RemoteRoot -File)
+          if ($LocalFiles.Count -ne 4 -or $RemoteFiles.Count -ne 4 -or
+              (Compare-Object ($LocalFiles.Name | Sort-Object) ($RemoteFiles.Name | Sort-Object))) {
+            throw "Private draft asset inventory differs from the verified local inventory."
+          }
+          foreach ($Local in $LocalFiles) {
+            $Remote = Join-Path $RemoteRoot $Local.Name
+            if ((Get-FileHash -LiteralPath $Local.FullName -Algorithm SHA256).Hash -cne
+                (Get-FileHash -LiteralPath $Remote -Algorithm SHA256).Hash) {
+              throw "Remote draft asset hash mismatch: $($Local.Name)"
+            }
+          }
+          Remove-Item -LiteralPath $RemoteRoot -Recurse -Force
+
+      - name: Remove eSigner client and temporary signing state before publication
+        shell: pwsh
+        run: |
+          $ToolRoot = [IO.Path]::GetFullPath('${{ steps.codesigntool.outputs.tool_root }}')
+          $RunnerTemp = [IO.Path]::GetFullPath($env:RUNNER_TEMP).TrimEnd('\') + '\'
+          if (-not $ToolRoot.StartsWith($RunnerTemp, [StringComparison]::OrdinalIgnoreCase)) {
+            throw "Refusing to remove eSigner client outside RUNNER_TEMP."
+          }
+          Remove-Item -LiteralPath $ToolRoot -Recurse -Force
+          if (Test-Path -LiteralPath $ToolRoot) { throw "Temporary eSigner client cleanup failed." }
+          $SigningResidue = @(
+            Get-ChildItem windows-app -Recurse -File -Force -ErrorAction SilentlyContinue | Where-Object {
+              $_.Name -like '*.calorie-esigner-*' -or $_.Extension.ToLowerInvariant() -in @('.pfx', '.p12', '.key', '.cer')
+            }
+          )
+          if ($SigningResidue.Count -gt 0) { throw "Signing/certificate residue remains before publication." }
+
+      - name: Recheck remote tag and publish the exact private draft
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SOURCE_COMMIT: ${{ steps.source.outputs.commit }}
+        run: |
+          function Get-RemoteTagCommit {
+            $RemoteLines = @(& git ls-remote --tags origin "refs/tags/$env:RELEASE_TAG" "refs/tags/$env:RELEASE_TAG^{}")
+            if ($LASTEXITCODE -ne 0 -or $RemoteLines.Count -lt 1) { throw "Remote release tag disappeared." }
+            $Peeled = $RemoteLines | Where-Object { $_ -match '\^\{\}$' } | Select-Object -First 1
+            return $(if ($Peeled) { ($Peeled -split '\s+')[0] } else { ($RemoteLines[0] -split '\s+')[0] })
+          }
+          function Assert-RemoteAssetHashes {
+            param([Parameter(Mandatory = $true)][string]$Phase)
+            $RemoteRoot = Join-Path $env:RUNNER_TEMP "calorie-release-$Phase-$([Guid]::NewGuid().ToString('N'))"
+            New-Item -ItemType Directory -Path $RemoteRoot | Out-Null
+            try {
+              & gh release download $env:RELEASE_TAG --dir $RemoteRoot
+              if ($LASTEXITCODE -ne 0) { throw "Release assets could not be downloaded during $Phase verification." }
+              $LocalFiles = @(
+                Get-ChildItem windows-app/release -File -Filter '*.zip'
+                Get-Item windows-app/release/SHA256SUMS.txt
+                Get-ChildItem windows-app/release -File -Filter '*.cdx.json'
+              )
+              $RemoteFiles = @(Get-ChildItem -LiteralPath $RemoteRoot -File)
+              if ($LocalFiles.Count -ne 4 -or $RemoteFiles.Count -ne 4 -or
+                  (Compare-Object ($LocalFiles.Name | Sort-Object) ($RemoteFiles.Name | Sort-Object))) {
+                throw "Release asset inventory changed during $Phase verification."
+              }
+              foreach ($Local in $LocalFiles) {
+                $Remote = Join-Path $RemoteRoot $Local.Name
+                if ((Get-FileHash -LiteralPath $Local.FullName -Algorithm SHA256).Hash -cne
+                    (Get-FileHash -LiteralPath $Remote -Algorithm SHA256).Hash) {
+                  throw "Release asset bytes changed during $Phase verification: $($Local.Name)"
+                }
+              }
+            } finally {
+              if (Test-Path -LiteralPath $RemoteRoot) { Remove-Item -LiteralPath $RemoteRoot -Recurse -Force }
+            }
+          }
+          function Restore-AndConfirmPrivateDraft {
+            $Observations = [Collections.Generic.List[string]]::new()
+            foreach ($Attempt in 1..4) {
+              & gh release edit $env:RELEASE_TAG --draft=true
+              $EditExit = $LASTEXITCODE
+              $ViewText = & gh release view $env:RELEASE_TAG --json isDraft 2>&1
+              $ViewExit = $LASTEXITCODE
+              if ($ViewExit -eq 0) {
+                try {
+                  $State = $ViewText | ConvertFrom-Json
+                  if ($State.isDraft -eq $true) { return }
+                } catch {
+                  $Observations.Add("attempt $Attempt returned malformed state JSON")
+                }
+              }
+              $Observations.Add("attempt $Attempt editExit=$EditExit viewExit=$ViewExit")
+              Start-Sleep -Seconds ([Math]::Pow(2, $Attempt - 1))
+            }
+            throw "Could not confirm that the ambiguous publication was restored to a private draft: $($Observations -join '; ')"
+          }
+          try {
+            $RemoteCommit = Get-RemoteTagCommit
+            if ($RemoteCommit -cne $env:SOURCE_COMMIT) { throw "Remote tag moved after signed verification." }
+            $Release = & gh release view $env:RELEASE_TAG --json isDraft,assets | ConvertFrom-Json
+            $ExpectedNames = @(
+              (Get-ChildItem windows-app/release -File -Filter '*.zip').Name,
+              'SHA256SUMS.txt',
+              'calorie-steward-product.cdx.json',
+              'calorie-steward-electron.cdx.json'
+            ) | Sort-Object
+            $ActualNames = @($Release.assets | ForEach-Object { $_.name }) | Sort-Object
+            if ($Release.isDraft -ne $true -or (Compare-Object $ExpectedNames $ActualNames)) {
+              throw "Private draft inventory is incomplete; it will not be published."
+            }
+            Assert-RemoteAssetHashes -Phase 'immediate-prepublish'
+            & gh release edit $env:RELEASE_TAG --draft=false
+            if ($LASTEXITCODE -ne 0) {
+              throw "GitHub CLI returned a publication failure after the publish request was sent."
+            }
+            $Published = & gh release view $env:RELEASE_TAG --json isDraft,assets | ConvertFrom-Json
+            $PublishedNames = @($Published.assets | ForEach-Object { $_.name }) | Sort-Object
+            if ($Published.isDraft -ne $false -or (Compare-Object $ExpectedNames $PublishedNames)) {
+              throw "Published Release state or inventory is invalid."
+            }
+            if ((Get-RemoteTagCommit) -cne $env:SOURCE_COMMIT) {
+              throw "Remote tag moved during publication."
+            }
+            Assert-RemoteAssetHashes -Phase 'immediate-postpublish'
+          } catch {
+            $VerificationFailure = $_.Exception.Message
+            try {
+              Restore-AndConfirmPrivateDraft
+            } catch {
+              throw "Release publication entered an ambiguous state and a private draft could not be confirmed. Original failure: $VerificationFailure. Rollback failure: $($_.Exception.Message)"
+            }
+            throw "Release publication failed or post-publication verification failed; the Release was confirmed back in private draft state: $VerificationFailure"
+          }
+
+      - name: Best-effort isolated eSigner cleanup after failure
+        if: always() && steps.codesigntool.outputs.tool_root != ''
+        shell: pwsh
+        run: |
+          $ToolRoot = [IO.Path]::GetFullPath('${{ steps.codesigntool.outputs.tool_root }}')
+          $RunnerTemp = [IO.Path]::GetFullPath($env:RUNNER_TEMP).TrimEnd('\') + '\'
+          if (-not $ToolRoot.StartsWith($RunnerTemp, [StringComparison]::OrdinalIgnoreCase)) {
+            throw "Refusing fallback cleanup outside RUNNER_TEMP."
+          }
+          if (Test-Path -LiteralPath $ToolRoot) { Remove-Item -LiteralPath $ToolRoot -Recurse -Force }
+          if (Test-Path -LiteralPath $ToolRoot) { throw "Fallback eSigner cleanup failed." }
