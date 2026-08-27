@@ -470,6 +470,34 @@ function Assert-WackXmlPass {
     $ShownResult = $(if ([string]::IsNullOrWhiteSpace($UnexpectedResults[0])) { '<EMPTY>' } else { $UnexpectedResults[0] })
     throw "WACK contains a non-whitelisted test result: $ShownResult"
   }
+  $OutcomeFields = @(
+    $Report.SelectNodes(
+      "//@*[translate(local-name(), 'abcdefghijklmnopqrstuvwxyz', 'ABCDEFGHIJKLMNOPQRSTUVWXYZ')='STATUS' or " +
+      "translate(local-name(), 'abcdefghijklmnopqrstuvwxyz', 'ABCDEFGHIJKLMNOPQRSTUVWXYZ')='RESULT' or " +
+      "translate(local-name(), 'abcdefghijklmnopqrstuvwxyz', 'ABCDEFGHIJKLMNOPQRSTUVWXYZ')='OUTCOME' or " +
+      "translate(local-name(), 'abcdefghijklmnopqrstuvwxyz', 'ABCDEFGHIJKLMNOPQRSTUVWXYZ')='OVERALL_RESULT']"
+    )
+  ) + @(
+    $Report.SelectNodes(
+      "//*[translate(local-name(), 'abcdefghijklmnopqrstuvwxyz', 'ABCDEFGHIJKLMNOPQRSTUVWXYZ')='STATUS' or " +
+      "translate(local-name(), 'abcdefghijklmnopqrstuvwxyz', 'ABCDEFGHIJKLMNOPQRSTUVWXYZ')='RESULT' or " +
+      "translate(local-name(), 'abcdefghijklmnopqrstuvwxyz', 'ABCDEFGHIJKLMNOPQRSTUVWXYZ')='OUTCOME' or " +
+      "translate(local-name(), 'abcdefghijklmnopqrstuvwxyz', 'ABCDEFGHIJKLMNOPQRSTUVWXYZ')='OVERALL_RESULT']"
+    )
+  )
+  if ($OutcomeFields.Count -lt ($TestNodes.Count + 1)) {
+    throw 'WACK report does not expose a complete outcome inventory.'
+  }
+  $AllowedOutcomeValues = @(
+    'PASS', 'PASSED', 'SUCCESS', 'SUCCEEDED', 'N A', 'NA', 'NOT APPLICABLE'
+  )
+  foreach ($Field in $OutcomeFields) {
+    $Value = (($Field.Value ?? $Field.InnerText).Trim().ToUpperInvariant() -replace '[_\-/]+', ' ') -replace '\s+', ' '
+    if ([string]::IsNullOrWhiteSpace($Value) -or $Value -notin $AllowedOutcomeValues) {
+      $ShownValue = $(if ([string]::IsNullOrWhiteSpace($Value)) { '<EMPTY>' } else { $Value })
+      throw "WACK contains a non-whitelisted STATUS/RESULT/OUTCOME field: $ShownValue"
+    }
+  }
   return [pscustomobject]@{
     Overall = $Overall
     LatestVersion = $true
