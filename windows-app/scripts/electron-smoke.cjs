@@ -325,17 +325,32 @@ async function main() {
       const screenshot = await cdpCommand(page.webSocketDebuggerUrl, "Page.captureScreenshot", {
         format: "png",
         fromSurface: true,
-        captureBeyondViewport: false,
+        captureBeyondViewport: true,
+        clip: {
+          x: 0,
+          y: 0,
+          width: 1366,
+          height: 768,
+          scale: 1,
+        },
       });
       const screenshotPath = path.resolve(projectRoot, process.env.CALORIE_SMOKE_SCREENSHOT);
       const screenshotBytes = Buffer.from(screenshot.data, "base64");
+      const screenshotWidth = screenshotBytes.length >= 24
+        ? screenshotBytes.readUInt32BE(16)
+        : 0;
+      const screenshotHeight = screenshotBytes.length >= 24
+        ? screenshotBytes.readUInt32BE(20)
+        : 0;
       if (
         screenshotBytes.length < 24 ||
         screenshotBytes.toString("hex", 0, 8) !== "89504e470d0a1a0a" ||
-        screenshotBytes.readUInt32BE(16) !== 1366 ||
-        screenshotBytes.readUInt32BE(20) !== 768
+        screenshotWidth !== 1366 ||
+        screenshotHeight !== 768
       ) {
-        throw new Error("Store screenshot must be an exact 1366x768 PNG.");
+        throw new Error(
+          `Store screenshot must be an exact 1366x768 PNG; received ${screenshotWidth}x${screenshotHeight}.`,
+        );
       }
       await fs.mkdir(path.dirname(screenshotPath), { recursive: true });
       await fs.writeFile(screenshotPath, screenshotBytes);
