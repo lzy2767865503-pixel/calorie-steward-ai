@@ -481,8 +481,14 @@ function Invoke-PackagedUiSmoke {
     $env:CALORIE_EXPECTED_USER_DATA = $ExpectedUserData
   }
   try {
-    & node windows-app/scripts/electron-smoke.cjs
-    if ($LASTEXITCODE -ne 0) { throw "Packaged Electron UI smoke failed with exit code $LASTEXITCODE." }
+    $SmokeOutput = @(& node windows-app/scripts/electron-smoke.cjs 2>&1)
+    $SmokeExitCode = $LASTEXITCODE
+    if ($SmokeExitCode -ne 0) {
+      $Diagnostic = ($SmokeOutput | ForEach-Object { [string]$_ }) -join [Environment]::NewLine
+      if ($Diagnostic.Length -gt 4000) { $Diagnostic = $Diagnostic.Substring($Diagnostic.Length - 4000) }
+      throw "Packaged Electron UI smoke failed with exit code $SmokeExitCode`: $Diagnostic"
+    }
+    foreach ($Line in $SmokeOutput) { Write-Host ([string]$Line) }
     if (-not (Test-Path -LiteralPath $Screenshot -PathType Leaf) -or (Get-Item -LiteralPath $Screenshot).Length -le 0) {
       throw "Packaged Electron UI smoke did not create a non-empty screenshot."
     }
@@ -719,6 +725,11 @@ try {
         $CleanupErrors.Add("Refused to terminate an unowned or PID-reused same-name process: $($Process.ProcessId)")
       }
     }
+    if ($NamedProcesses.Count -gt 0 -and $ValidatedCleanupRoot) {
+      try { Wait-NoProductRuntime -TimeoutSeconds 30 } catch {
+        $CleanupErrors.Add("Product runtime did not stop during cleanup: $($_.Exception.Message)")
+      }
+    }
     if (-not $Uninstaller -and $ValidatedCleanupRoot) {
       $PossibleUninstallers = @(Get-ChildItem -LiteralPath $ValidatedCleanupRoot -File -Filter 'Uninstall*.exe' -ErrorAction SilentlyContinue)
       if ($PossibleUninstallers.Count -eq 1) { $Uninstaller = $PossibleUninstallers[0] }
@@ -747,10 +758,19 @@ try {
       }
     }
     if ($ValidatedCleanupRoot -and (Test-Path -LiteralPath $ValidatedCleanupRoot)) {
-      try {
-        Remove-Item -LiteralPath $ValidatedCleanupRoot -Recurse -Force
-      } catch {
-        $CleanupErrors.Add("Could not validate or remove the product install root: $($_.Exception.Message)")
+      $LastRemovalError = $null
+      foreach ($RemovalAttempt in 1..10) {
+        try {
+          Remove-Item -LiteralPath $ValidatedCleanupRoot -Recurse -Force
+          $LastRemovalError = $null
+          break
+        } catch {
+          $LastRemovalError = $_.Exception.Message
+          Start-Sleep -Milliseconds (250 * $RemovalAttempt)
+        }
+      }
+      if (Test-Path -LiteralPath $ValidatedCleanupRoot) {
+        $CleanupErrors.Add("Could not validate or remove the product install root: $LastRemovalError")
       }
     }
       if (@(Get-ProductProcesses).Count -gt 0 -or @(Get-CalorieListeners).Count -gt 0 -or
