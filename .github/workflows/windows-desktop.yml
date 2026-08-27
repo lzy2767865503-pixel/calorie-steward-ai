@@ -64,6 +64,23 @@ jobs:
               throw "Packaged legal file missing: $legalFile"
             }
           }
+          $packagedExe = Get-ChildItem windows-app/release/win-unpacked -File -Filter 'Calorie Steward by LAI ZEYU.exe' | Select-Object -First 1
+          if (-not $packagedExe) { throw "Packaged Electron executable missing" }
+          $fuseText = (& node windows-app/node_modules/@electron/fuses/dist/bin.js read --app $packagedExe.FullName 2>&1 | Out-String)
+          if ($LASTEXITCODE -ne 0) { throw "Packaged Electron fuse inspection failed" }
+          foreach ($expectedFuse in @(
+            'RunAsNode is Disabled',
+            'EnableCookieEncryption is Enabled',
+            'EnableNodeOptionsEnvironmentVariable is Disabled',
+            'EnableNodeCliInspectArguments is Disabled',
+            'EnableEmbeddedAsarIntegrityValidation is Enabled',
+            'OnlyLoadAppFromAsar is Enabled',
+            'LoadBrowserProcessSpecificV8Snapshot is Disabled',
+            'GrantFileProtocolExtraPrivileges is Disabled',
+            'WasmTrapHandlers is Enabled'
+          )) {
+            if (-not $fuseText.Contains($expectedFuse)) { throw "Packaged Electron fuse mismatch: $expectedFuse" }
+          }
 
       - name: Generate CycloneDX SBOMs
         shell: pwsh
@@ -301,6 +318,13 @@ jobs:
             if (-not (Test-Path -LiteralPath (Join-Path 'manifest-inspect/resources/legal' $legalFile) -PathType Leaf)) {
               throw "Store package legal file missing: $legalFile"
             }
+          }
+          $storeExe = Get-ChildItem manifest-inspect -Recurse -File -Filter 'Calorie Steward by LAI ZEYU.exe' | Select-Object -First 1
+          if (-not $storeExe) { throw "Store package Electron executable missing" }
+          $storeFuseText = (& node windows-app/node_modules/@electron/fuses/dist/bin.js read --app $storeExe.FullName 2>&1 | Out-String)
+          if ($LASTEXITCODE -ne 0) { throw "Store package Electron fuse inspection failed" }
+          if (-not $storeFuseText.Contains('LoadBrowserProcessSpecificV8Snapshot is Disabled')) {
+            throw "Store package browser-process snapshot fuse is incompatible"
           }
 
           $certificate = New-SelfSignedCertificate -Type Custom -Subject $env:WINDOWS_PUBLISHER `

@@ -9,6 +9,8 @@ const test = require("node:test");
 const projectRoot = path.resolve(__dirname, "..");
 const metadata = require("../package.json");
 const config = require("../electron-builder.config.cjs");
+const afterPack = require("../scripts/after-pack.cjs");
+const { FuseV1Options } = require("@electron/fuses");
 
 test("desktop bridge and package metadata use the same release version", () => {
   const preload = fs.readFileSync(path.join(projectRoot, "electron", "preload.cjs"), "utf8");
@@ -31,6 +33,11 @@ test("Windows package config is hardened and Store identity is injected", () => 
     ["legal/LICENSE", "legal/NOTICE", "legal/THIRD_PARTY_NOTICES.md"],
   );
   assert.equal(config.afterPack, "./scripts/after-pack.cjs");
+  assert.equal(afterPack.fuseConfiguration.strictlyRequireAllFuses, true);
+  assert.equal(
+    afterPack.fuseConfiguration[FuseV1Options.LoadBrowserProcessSpecificV8Snapshot],
+    false,
+  );
 });
 
 test("Store packaging fails closed without Partner Center identity", () => {
