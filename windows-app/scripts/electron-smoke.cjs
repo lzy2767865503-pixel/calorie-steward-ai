@@ -135,16 +135,34 @@ async function readReadinessMarker(candidateRoots) {
 async function stopProcess(child) {
   if (child.exitCode !== null) return;
   if (process.platform === "win32") {
-    spawnSync("taskkill", ["/PID", String(child.pid), "/T", "/F"], {
+    const exitPromise = new Promise((resolve) => child.once("exit", () => resolve(true)));
+    const result = spawnSync("taskkill", ["/PID", String(child.pid), "/T", "/F"], {
       stdio: "ignore",
+      timeout: 15_000,
     });
+    if (result.error) {
+      throw new Error(`Electron process-tree termination failed: ${result.error.message}`);
+    }
+    if (result.status !== 0 && child.exitCode === null) {
+      throw new Error(`taskkill rejected Electron process-tree termination with status ${result.status}.`);
+    }
+    const exited = child.exitCode !== null
+      ? true
+      : await Promise.race([exitPromise, delay(15_000).then(() => false)]);
+    if (!exited && child.exitCode === null) {
+      throw new Error("Electron process tree remained alive after taskkill.");
+    }
+    return;
   } else {
     child.kill("SIGTERM");
   }
-  await Promise.race([
-    new Promise((resolve) => child.once("exit", resolve)),
-    delay(5_000),
+  const exited = await Promise.race([
+    new Promise((resolve) => child.once("exit", () => resolve(true))),
+    delay(15_000).then(() => false),
   ]);
+  if (!exited && child.exitCode === null) {
+    throw new Error("Electron process remained alive after SIGTERM.");
+  }
 }
 
 async function main() {
