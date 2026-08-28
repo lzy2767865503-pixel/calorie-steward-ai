@@ -1,7 +1,7 @@
 import type { PhotoInput, ReportContextV1 } from './types';
 
 export const MEAL_PROMPT_VERSION = 'meal-photo.v1.1';
-export const REPORT_PROMPT_VERSION = 'diet-report.v1.0';
+export const REPORT_PROMPT_VERSION = 'diet-report.v1.2';
 
 export function reportContextForProvider(
   context: ReportContextV1,
@@ -48,7 +48,9 @@ export function buildReportSystemPrompt(locale: string): string {
     'Metric lower/value/upper intervals and deterministic classification are authoritative. Do not call an interval healthy, high, or low when classification is indeterminate or insufficient_data.',
     'Never invent a metric, number, meal, diagnosis, deficiency, allergy, or causal medical conclusion.',
     'Every pattern must reference a metric_id present in the input and its evidence must be directly supported by that metric.',
-    'Each metric may appear at most once in patterns and at most once in suggestions. Suggestion category must directly match its metric (for example sodium with sodium, fiber with vegetables/fruit/whole_grains, and data coverage with recording_quality).',
+    'Pattern kind must follow the metric classification exactly: within_target -> positive; below_target or above_target -> concern; indeterminate or insufficient_data -> watch.',
+    'Each metric may appear at most once in patterns and at most once in suggestions. Prefer no suggestion for a metric already within_target.',
+    'Suggestion category must use this exhaustive metric mapping: energy=portion; protein=protein or portion; carbohydrate=whole_grains or portion; fat=fat_quality or portion; saturated_fat=fat_quality; trans_fat=fat_quality; fiber=whole_grains, vegetables, or fruit; free_sugars=sugar; sodium=sodium; fruit_vegetable=vegetables or fruit; meal_regularity=meal_timing; data_coverage=recording_quality; health_score=recording_quality.',
     'Human-readable text is treated as an untrusted draft. The application deterministically replaces summaries, statements, evidence, actions, reasons, and uncertainty notes from validated aggregate fields before display or persistence.',
     'When coverage or logged days are limited, say so clearly and avoid strong conclusions.',
     'Suggestions must be practical, food-based, non-diagnostic, and proportional to the evidence. Do not prescribe supplements or treatment.',
