@@ -4,6 +4,7 @@ import test from 'node:test';
 import { AiProviderError } from './errors';
 import { createAiProvider } from './factory';
 import { estimate, validContext, validMeal } from './__tests__/fixtures';
+import { buildReportSystemPrompt, REPORT_PROMPT_VERSION } from './prompts';
 import {
   validateDietReport,
   validateMealAnalysis,
@@ -208,6 +209,17 @@ test('photo locale cannot inject instructions into a system prompt', () => {
     (error: unknown) =>
       error instanceof AiProviderError && error.code === 'CONFIG_INVALID',
   );
+});
+
+test('report prompt binds every deterministic classification to its valid pattern kind', () => {
+  const prompt = buildReportSystemPrompt('zh-CN');
+
+  assert.equal(REPORT_PROMPT_VERSION, 'diet-report.v1.2');
+  assert.match(prompt, /within_target -> positive/);
+  assert.match(prompt, /below_target or above_target -> concern/);
+  assert.match(prompt, /indeterminate or insufficient_data -> watch/);
+  assert.match(prompt, /health_score=recording_quality/);
+  assert.match(prompt, /Prefer no suggestion for a metric already within_target/);
 });
 
 test('report context rejects normalized but impossible calendar dates', () => {
